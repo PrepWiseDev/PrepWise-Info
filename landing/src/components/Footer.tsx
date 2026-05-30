@@ -55,7 +55,7 @@ export default function Footer() {
         <div className="flex flex-col items-center md:items-start gap-2">
           <img src="/logo.svg" alt="PrepWise" className="h-7" />
           <p className="text-pw-text-muted text-xs">
-            &copy; 2026 PrepWise. All rights reserved.
+            &copy; 2026 PrepWise LLC. All rights reserved.
           </p>
         </div>
 
