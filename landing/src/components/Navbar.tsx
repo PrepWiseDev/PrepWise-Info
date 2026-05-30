@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X } from "lucide-react";
-import { NAV_LINKS } from "@/lib/constants";
+import { NAV_LINKS, APP_STORE_URL } from "@/lib/constants";
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
@@ -41,7 +41,9 @@ export default function Navbar() {
             </a>
           ))}
           <a
-            href="#cta"
+            href={APP_STORE_URL}
+            target="_blank"
+            rel="noopener noreferrer"
             className="rounded-lg bg-pw-brand px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-pw-brand/90 hover:shadow-lg hover:shadow-pw-brand/20"
           >
             Download
@@ -79,7 +81,9 @@ export default function Navbar() {
                 </a>
               ))}
               <a
-                href="#cta"
+                href={APP_STORE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="rounded-lg bg-pw-brand px-4 py-2.5 text-center text-sm font-semibold text-white"
                 onClick={() => setMobileOpen(false)}
               >

@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { APP_STORE_URL } from "@/lib/constants";
 
 export default function Hero() {
   return (
@@ -34,16 +35,17 @@ export default function Hero() {
           {/* CTA */}
           <div className="flex flex-col sm:flex-row items-start gap-4 mt-2">
             <div className="relative group">
-              {/* TODO: Replace href with real App Store URL */}
-              <a href="#cta" className="block">
+              <a
+                href={APP_STORE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block"
+              >
                 <img
                   src="/app-store-badge.svg"
                   alt="Download on the App Store"
                   className="h-12 transition-transform group-hover:scale-105"
                 />
-                <span className="absolute -top-2 -right-2 bg-pw-warning text-pw-bg text-[10px] font-bold px-2 py-0.5 rounded-full">
-                  Coming Soon
-                </span>
               </a>
             </div>
           </div>
