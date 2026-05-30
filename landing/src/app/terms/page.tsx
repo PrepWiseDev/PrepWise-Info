@@ -26,7 +26,7 @@ export default function TermsPage() {
       >
         <p>
           These Terms of Use (&ldquo;Terms&rdquo;) constitute a legally binding agreement between you
-          (&ldquo;User,&rdquo; &ldquo;you,&rdquo; or &ldquo;your&rdquo;) and PrepWise (&ldquo;we,&rdquo;
+          (&ldquo;User,&rdquo; &ldquo;you,&rdquo; or &ldquo;your&rdquo;) and PrepWise LLC (&ldquo;we,&rdquo;
           &ldquo;our,&rdquo; or &ldquo;us&rdquo;) governing your use of the PrepWise mobile application (the
           &ldquo;App&rdquo;). By downloading, installing, or using the App, you agree to be bound by these Terms. If
           you do not agree, do not use the App.
@@ -126,7 +126,7 @@ export default function TermsPage() {
           <h2 className="text-xl font-semibold text-pw-text mb-3">8. Intellectual Property</h2>
           <p>
             All App content, features, and functionality (excluding your user content) — including but not limited to
-            text, graphics, logos, icons, and software — are owned by or licensed to PrepWise and are protected by
+            text, graphics, logos, icons, and software — are owned by or licensed to PrepWise LLC and are protected by
             applicable intellectual property laws. You may not reproduce, distribute, or create derivative works without
             our express written permission.
           </p>
@@ -154,7 +154,7 @@ export default function TermsPage() {
         <section>
           <h2 className="text-xl font-semibold text-pw-text mb-3">11. Limitation of Liability</h2>
           <p className="uppercase text-sm">
-            To the fullest extent permitted by law, PrepWise and its officers, directors, employees, and agents shall
+            To the fullest extent permitted by law, PrepWise LLC and its officers, directors, employees, and agents shall
             not be liable for any indirect, incidental, special, consequential, or punitive damages arising from your
             use of or inability to use the App, even if we have been advised of the possibility of such damages. Our
             total liability to you for any claims arising from these Terms shall not exceed the amount you paid us in
@@ -165,7 +165,7 @@ export default function TermsPage() {
         <section>
           <h2 className="text-xl font-semibold text-pw-text mb-3">12. Indemnification</h2>
           <p>
-            You agree to indemnify and hold harmless PrepWise and its affiliates from any claims, damages, losses,
+            You agree to indemnify and hold harmless PrepWise LLC and its affiliates from any claims, damages, losses,
             liabilities, costs, and expenses (including reasonable attorneys&apos; fees) arising from your use of the
             App, violation of these Terms, or infringement of any third-party rights.
           </p>
