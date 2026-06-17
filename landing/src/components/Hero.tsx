@@ -61,7 +61,7 @@ export default function Hero() {
           {/* Glow behind phones */}
           <div className="absolute w-[350px] h-[350px] rounded-full bg-pw-brand/15 blur-[80px]" />
 
-          {/* Phone 1 — iPhone 17 Pro Max (6.9") — Home dashboard.
+          {/* Phone 1: iPhone 17 Pro Max (6.9"), Home dashboard.
               Bezel ratio (~3% padding) and aspect derived from
               physical 163×77.6mm / 1320×2868 display. */}
           <div className="relative z-10 -mr-8">
@@ -74,14 +74,14 @@ export default function Hero() {
               <div className="rounded-[2.1rem] overflow-hidden bg-pw-bg-card">
                 <img
                   src="/screenshots/hero-1.png"
-                  alt="PrepWise home dashboard in dark mode — weekly meals, expiring ingredients, and macro tracking"
+                  alt="PrepWise home dashboard in dark mode: weekly meals, expiring ingredients, and macro tracking"
                   className="block w-full h-auto"
                 />
               </div>
             </div>
           </div>
 
-          {/* Phone 2 — iPhone 17 Pro Max (6.9") — Recipes */}
+          {/* Phone 2: iPhone 17 Pro Max (6.9"), Recipes */}
           <div className="relative z-0 -ml-8 mt-12">
             <div className="relative w-[200px] sm:w-[240px] rounded-[2.6rem] p-[3%] bg-gradient-to-b from-neutral-800 via-black to-neutral-900 shadow-2xl shadow-black/50 ring-1 ring-white/10 rotate-3">
               <span aria-hidden className="absolute left-[-2px] top-[14%] w-[2px] h-6 rounded-l bg-neutral-700" />

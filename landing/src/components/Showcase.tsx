@@ -30,7 +30,7 @@ export default function Showcase() {
             Take a Tour
           </h2>
           <p className="text-pw-text-subtle max-w-2xl mx-auto">
-            Every screen, every interaction — designed to make meal planning
+            Every screen, every interaction, designed to make meal planning
             feel effortless.
           </p>
         </motion.div>

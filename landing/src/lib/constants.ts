@@ -26,7 +26,7 @@ export const FEATURES = [
     icon: "Sparkles" as const,
     title: "Recipes That Match Your Reality",
     description:
-      "Every recipe shows a real-time availability indicator. Green means you have everything. You'll always know what you can cook tonight — not just what you wish you could.",
+      "Every recipe shows a real-time availability indicator. Green means you have everything. You'll always know what you can cook tonight, not just what you wish you could.",
   },
   {
     icon: "Package" as const,
@@ -38,13 +38,13 @@ export const FEATURES = [
     icon: "CalendarDays" as const,
     title: "AI That Actually Helps",
     description:
-      'Ask PrepWise to "make a high-protein dinner with the chicken and sweet potatoes in my pantry" and it delivers. Custom recipes, full-week plans, and pantry suggestions — voice-powered.',
+      'Ask PrepWise to "make a high-protein dinner with the chicken and sweet potatoes in my pantry" and it delivers. Custom recipes, full-week plans, and pantry suggestions, all voice-powered.',
   },
   {
     icon: "ShoppingCart" as const,
     title: "Macros Without the Math",
     description:
-      "Every recipe automatically calculates calories, protein, carbs, and fat. Nutrition tracking is built into your meal planning process — not bolted on as an afterthought.",
+      "Every recipe automatically calculates calories, protein, carbs, and fat. Nutrition tracking is built into your meal planning process, not bolted on as an afterthought.",
   },
 ] as const;
 
@@ -53,7 +53,7 @@ export const STEPS = [
     number: 1,
     title: "Track Your Pantry",
     description:
-      "Snap a grocery receipt and your pantry updates automatically — or add ingredients manually in seconds.",
+      "Snap a grocery receipt and your pantry updates automatically, or add ingredients manually in seconds.",
   },
   {
     number: 2,
@@ -65,7 +65,7 @@ export const STEPS = [
     number: 3,
     title: "Shop & Cook",
     description:
-      "Your shopping list writes itself — only what you actually need, based on your meal plan and what's already in your pantry.",
+      "Your shopping list writes itself: only what you actually need, based on your meal plan and what's already in your pantry.",
   },
 ] as const;
 
@@ -77,7 +77,7 @@ export const SHOWCASE_SLIDES = [
   { src: "/promo/C5.png", caption: "Your recipe collection, beautifully organized" },
   { src: "/promo/C6.png", caption: "Track macros, without the hassle" },
   { src: "/promo/C7.png", caption: "From fridge to plated, effortlessly" },
-  { src: "/promo/C9.png", caption: "Designed for night owls — full dark mode" },
+  { src: "/promo/C9.png", caption: "Designed for night owls, full dark mode"},
   { src: "/promo/C10.png", caption: "Get started in 60 seconds" },
 ] as const;
 

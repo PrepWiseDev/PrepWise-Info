@@ -9,11 +9,11 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "PrepWise — Meal Planner & Pantry Tracker",
+  title: "PrepWise: Meal Planner & Pantry Tracker",
   description:
     "Stop guessing what to cook. PrepWise plans meals from your pantry, tracks macros, and writes your shopping list automatically.",
   openGraph: {
-    title: "PrepWise — Meal Planner & Pantry Tracker",
+    title: "PrepWise: Meal Planner & Pantry Tracker",
     description:
       "Stop guessing what to cook. PrepWise plans meals from your pantry, tracks macros, and writes your shopping list automatically.",
     type: "website",
@@ -22,7 +22,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "PrepWise — Meal Planner & Pantry Tracker",
+    title: "PrepWise: Meal Planner & Pantry Tracker",
     description:
       "Stop guessing what to cook. PrepWise plans meals from your pantry, tracks macros, and writes your shopping list automatically.",
   },

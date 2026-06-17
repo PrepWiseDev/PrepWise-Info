@@ -39,7 +39,7 @@ export default function Features() {
           </h2>
           <p className="text-pw-text-subtle max-w-2xl mx-auto">
             From pantry tracking to AI meal planning to automatic shopping
-            lists — PrepWise handles the hard parts so you can focus on
+            lists, PrepWise handles the hard parts so you can focus on
             cooking.
           </p>
         </motion.div>

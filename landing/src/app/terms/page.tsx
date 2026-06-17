@@ -125,8 +125,8 @@ export default function TermsPage() {
         <section>
           <h2 className="text-xl font-semibold text-pw-text mb-3">8. Intellectual Property</h2>
           <p>
-            All App content, features, and functionality (excluding your user content) — including but not limited to
-            text, graphics, logos, icons, and software — are owned by or licensed to PrepWise LLC and are protected by
+            All App content, features, and functionality (excluding your user content), including but not limited to
+            text, graphics, logos, icons, and software, are owned by or licensed to PrepWise LLC and are protected by
             applicable intellectual property laws. You may not reproduce, distribute, or create derivative works without
             our express written permission.
           </p>
