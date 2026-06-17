@@ -6,7 +6,7 @@ export const NAV_LINKS = [
 
 export const APP_STORE_URL =
   process.env.NEXT_PUBLIC_APP_STORE_URL ||
-  "https://apps.apple.com/app/id6754949361";
+  "https://apps.apple.com/us/app/prepwise/id6754949361";
 
 export const LEGAL_LINKS = {
   privacy: "/privacy",
