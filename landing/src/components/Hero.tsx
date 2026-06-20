@@ -1,9 +1,10 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { APP_STORE_URL } from "@/lib/constants";
+import { useAppStore } from "@/lib/useAppStore";
 
 export default function Hero() {
+  const { href, onClick } = useAppStore();
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-20 pb-16 px-6">
       {/* Background glow */}
@@ -36,10 +37,12 @@ export default function Hero() {
           <div className="flex flex-col sm:flex-row items-start gap-4 mt-2">
             <div className="relative group">
               <a
-                href={APP_STORE_URL}
+                href={href}
+                onClick={() => onClick("hero")}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="block"
+                aria-label="Download PrepWise on the App Store"
               >
                 <img
                   src="/app-store-badge.svg"

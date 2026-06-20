@@ -4,9 +4,19 @@ export const NAV_LINKS = [
   { label: "Get Started", href: "#cta" },
 ] as const;
 
+// App Store download link.
+// `pt` = provider token, `ct` = campaign token (App Store Connect attribution),
+// `mt=8` = App Store medium. The `ct` value is the DEFAULT campaign token; it is
+// overridden at click time with the incoming ad's utm_content/utm_campaign so
+// App Store Connect attributes installs back to the specific ad. See lib/analytics.ts.
 export const APP_STORE_URL =
   process.env.NEXT_PUBLIC_APP_STORE_URL ||
-  "https://apps.apple.com/us/app/prepwise/id6754949361";
+  "https://apps.apple.com/app/apple-store/id6754949361?pt=128248695&ct=Landing%20Page%20Download%20Button&mt=8";
+
+// Analytics IDs (set in .env.local / Cloudflare Pages env vars).
+// Tracking no-ops gracefully when these are empty, so the site works without them.
+export const META_PIXEL_ID = process.env.NEXT_PUBLIC_META_PIXEL_ID || "";
+export const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || "";
 
 export const LEGAL_LINKS = {
   privacy: "/privacy",

@@ -1,9 +1,10 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { APP_STORE_URL } from "@/lib/constants";
+import { useAppStore } from "@/lib/useAppStore";
 
 export default function EmailCapture() {
+  const { href, onClick } = useAppStore();
   return (
     <section id="cta" className="py-24 px-6">
       <motion.div
@@ -23,7 +24,8 @@ export default function EmailCapture() {
 
         <div className="flex justify-center">
           <a
-            href={APP_STORE_URL}
+            href={href}
+            onClick={() => onClick("footer_cta")}
             target="_blank"
             rel="noopener noreferrer"
             className="group inline-block"

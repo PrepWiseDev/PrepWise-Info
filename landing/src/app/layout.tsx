@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import Analytics from "@/components/Analytics";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -9,6 +10,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://www.prepwise-app.com"),
   title: "PrepWise: Meal Planner & Pantry Tracker",
   description:
     "Stop guessing what to cook. PrepWise plans meals from your pantry, tracks macros, and writes your shopping list automatically.",
@@ -18,7 +20,8 @@ export const metadata: Metadata = {
       "Stop guessing what to cook. PrepWise plans meals from your pantry, tracks macros, and writes your shopping list automatically.",
     type: "website",
     locale: "en_US",
-    // TODO: Add siteName and url once domain is finalized
+    siteName: "PrepWise",
+    url: "https://www.prepwise-app.com",
   },
   twitter: {
     card: "summary_large_image",
@@ -45,6 +48,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen bg-pw-bg text-pw-text font-sans antialiased">
         {children}
+        <Analytics />
       </body>
     </html>
   );
