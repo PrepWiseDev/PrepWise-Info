@@ -94,9 +94,12 @@ export default function PrivacyPage() {
 
         <section>
           <h2 className="text-xl font-semibold text-pw-text mb-3">5. Sharing of Information</h2>
-          <p className="mb-3">We do not sell your personal information for money. We may share information with:</p>
+          <p className="mb-3">We do not sell your personal information for money. We may share information with the following service providers and sub-processors, each of which processes data on our behalf under contractual confidentiality and data-protection obligations:</p>
           <ul className="list-disc pl-5 space-y-2">
-            <li><strong className="text-pw-text">Service Providers &amp; Sub-Processors:</strong> Cloud hosting (Supabase), AI processing, product analytics (PostHog), and crash and error monitoring (Sentry) that process data on our behalf under confidentiality obligations. See Section 4 for details on our analytics and crash-monitoring sub-processors.</li>
+            <li><strong className="text-pw-text">Supabase (cloud hosting, authentication &amp; storage):</strong> Stores your account, the content you create, and uploaded images, and handles sign-in.</li>
+            <li><strong className="text-pw-text">Superwall (subscription management):</strong> We share your subscription status and a user identifier with Superwall to manage and display subscription offers and entitlements.</li>
+            <li><strong className="text-pw-text">PostHog (product analytics)</strong> and <strong className="text-pw-text">Sentry (crash &amp; error monitoring):</strong> See Section 4 for the data collected, purposes, and links to their policies.</li>
+            <li><strong className="text-pw-text">AI processing:</strong> Assistant messages you send are transmitted to our AI service provider as described in Section 3.</li>
             <li><strong className="text-pw-text">In-App Purchases:</strong> Apple processes all subscription payments. We receive limited transaction metadata (e.g., subscription status) but never your full payment details.</li>
             <li><strong className="text-pw-text">Legal Requirements:</strong> Where required by law or to protect the rights and safety of our users.</li>
           </ul>
@@ -149,12 +152,14 @@ export default function PrivacyPage() {
           <ul className="list-disc pl-5 space-y-2">
             <li><strong className="text-pw-text">Performance of a contract</strong> &mdash; to provide the App&apos;s core features, such as your account, meal planning, and the content you create.</li>
             <li><strong className="text-pw-text">Legitimate interests</strong> &mdash; to keep the App stable and secure and to improve our product (for example, crash monitoring and product analytics), balanced against your rights and freedoms.</li>
-            <li><strong className="text-pw-text">Consent</strong> &mdash; where required by law for optional analytics; you may withdraw your consent at any time.</li>
+            <li><strong className="text-pw-text">Consent</strong> &mdash; where required by law for optional product analytics and crash reporting; you may withdraw your consent at any time in the App via <strong className="text-pw-text">Settings &rarr; Preferences &rarr; Privacy &rarr; &ldquo;Share Usage &amp; Diagnostics.&rdquo;</strong></li>
             <li><strong className="text-pw-text">Legal obligation</strong> &mdash; to comply with applicable law.</li>
           </ul>
           <p className="mt-3 mb-3"><strong className="text-pw-text">Your rights.</strong> Subject to applicable law, you have the right to access, correct, delete, restrict, or object to our processing of your personal data, the right to data portability, and the right to withdraw consent at any time. You also have the right to lodge a complaint with your local data-protection supervisory authority.</p>
           <p>
-            To exercise these rights, contact us at{" "}
+            To withdraw consent for analytics and crash reporting, turn off{" "}
+            <strong className="text-pw-text">Settings &rarr; Preferences &rarr; Privacy &rarr; &ldquo;Share Usage &amp; Diagnostics&rdquo;</strong>{" "}
+            in the App. To exercise your other rights, contact us at{" "}
             <a href="mailto:support@prepwise-app.com" className="text-pw-link hover:underline">support@prepwise-app.com</a>. You
             can also delete your account and all associated data at any time from{" "}
             <strong className="text-pw-text">Profile &amp; Settings &rarr; Account &rarr; Delete Account</strong>.
@@ -173,12 +178,16 @@ export default function PrivacyPage() {
             However, our use of third-party product analytics (such as PostHog) may be considered
             &ldquo;sharing&rdquo; of personal information under California law. You have the right to opt out.
           </p>
-          <p>
-            <strong className="text-pw-text">Do Not Sell or Share My Personal Information.</strong> To opt out, email us at{" "}
-            <a href="mailto:support@prepwise-app.com?subject=Do%20Not%20Sell%20or%20Share" className="text-pw-link hover:underline">support@prepwise-app.com</a>{" "}
-            with the subject line &ldquo;Do Not Sell or Share.&rdquo; We also honor Global Privacy Control (GPC) signals
-            where technically feasible. We will not discriminate against you for exercising any of these rights.
+          <p className="mb-3">
+            <strong className="text-pw-text">Do Not Sell or Share My Personal Information.</strong> You can opt out at any
+            time through any of the following:
           </p>
+          <ul className="list-disc pl-5 space-y-2">
+            <li><strong className="text-pw-text">In the App (recommended):</strong> go to <strong className="text-pw-text">Settings &rarr; Preferences &rarr; Privacy</strong> and turn off <strong className="text-pw-text">&ldquo;Share Usage &amp; Diagnostics.&rdquo;</strong> This single toggle immediately stops both product analytics (PostHog) and crash/diagnostics reporting (Sentry).</li>
+            <li><strong className="text-pw-text">By email:</strong> contact us at <a href="mailto:support@prepwise-app.com?subject=Do%20Not%20Sell%20or%20Share" className="text-pw-link hover:underline">support@prepwise-app.com</a> with the subject line &ldquo;Do Not Sell or Share.&rdquo;</li>
+            <li><strong className="text-pw-text">Global Privacy Control (GPC):</strong> on our website, we honor GPC browser signals where technically feasible. GPC is a browser-based signal and does not apply within the native App; please use the in-app toggle above to opt out inside the App.</li>
+          </ul>
+          <p className="mt-3">We will not discriminate against you for exercising any of these rights.</p>
         </section>
 
         <section>
