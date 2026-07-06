@@ -75,6 +75,11 @@ Legacy static HTML (legal.prepwise.app, kept for backward compatibility):
 - Background: #f9f9f9
 - Max content width: 760px (legal docs), 480px (index)
 
+## Copy Style
+
+- Never use em dashes (—) in user-facing copy — marketing text, headings, legal
+  docs, meta descriptions. Use plain hyphens (-) or restructure the sentence.
+
 ## Deployment
 
 ### Cloudflare Pages Setup (one-time)
