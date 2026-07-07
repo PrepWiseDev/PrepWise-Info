@@ -1,0 +1,18 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": [
+          "2DDFX89NYB.com.prepwise.mobile",
+          "2DDFX89NYB.com.prepwise.mobile.qa"
+        ],
+        "components": [
+          {
+            "/": "/r/*",
+            "comment": "Shared recipe universal links (PrepWise recipe share button)"
+          }
+        ]
+      }
+    ]
+  }
+}
