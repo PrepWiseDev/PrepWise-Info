@@ -1,5 +1,11 @@
 name = 'prepwiseinfo'
+main = "worker/index.js"
 compatibility_date = "2026-04-05"
 
 [assets]
 directory = "./landing/out"
+binding = "ASSETS"
+# Only recipe-share links hit the worker (OG preview pages); everything else,
+# including /.well-known/apple-app-site-association, is served straight from
+# the static assets.
+run_worker_first = ["/r/*"]

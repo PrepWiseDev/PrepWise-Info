@@ -48,10 +48,12 @@ PrepWise-Info/
 ├── terms.html              ← Legacy Terms of Use (standalone HTML)
 ├── 404.html                ← Custom 404 error page
 ├── logo.svg                ← PrepWise logo (source asset)
+├── worker/
+│   └── index.js            ← Worker for /r/{shareId} recipe-share OG preview pages
 ├── _headers                ← Cloudflare Pages security headers
 ├── robots.txt              ← Search engine directives
 ├── sitemap.xml             ← Sitemap for SEO
-├── wrangler.toml           ← Cloudflare Pages config (serves landing/out/)
+├── wrangler.toml           ← Cloudflare Workers config (worker + landing/out assets)
 └── CLAUDE.md               ← This file
 ```
 
@@ -61,6 +63,16 @@ Landing app (Next.js static export via wrangler.toml → landing/out/):
 - `/` → Home (landing page)
 - `/privacy` → Privacy Policy (integrated into landing app)
 - `/terms` → Terms of Use (integrated into landing app)
+
+Recipe-share preview worker (`worker/index.js`, runs only for `/r/*` via
+`run_worker_first`): renders an Open Graph preview page for PrepWise
+recipe-share Universal Links (`/r/{shareId}`) so iMessage/Slack show the
+recipe title, author, and image. Looks the share up through the public
+`get-shared-recipe` Supabase edge function (PROD first, then QA so TestFlight
+QA shares preview during testing). Revoked/unknown ids render a 404
+"recipe unavailable" page. The `/.well-known/apple-app-site-association`
+file stays a static asset - tapping a link on a phone with PrepWise
+installed still opens the app directly and never hits this page.
 
 Legacy static HTML (legal.prepwise.app, kept for backward compatibility):
 - `index.html` → Legal docs index
