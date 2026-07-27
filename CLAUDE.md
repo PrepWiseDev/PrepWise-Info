@@ -143,6 +143,45 @@ redirect branch.
 The redirect preserves the query string because the ad attribution chain depends
 on it (`utm_content` → App Store `ct` token; see `landing/src/lib/analytics.ts`).
 
+### The wrangler version pin is load-bearing
+
+`.github/workflows/deploy.yml` pins `wranglerVersion: "4.114.0"`. **Do not remove
+it and do not go below 4.x.**
+
+`cloudflare/wrangler-action@v3` defaults to **wrangler 3.90.0**, which does not
+know the `assets.run_worker_first` field. It does not fail on it. It logs
+
+```
+▲ [WARNING] Processing wrangler.toml configuration:
+    - Unexpected fields found in assets field: "run_worker_first"
+```
+
+…drops the field, and exits 0. The deploy is green and the routing config is
+simply absent, so the asset worker answers first and our worker only ever sees
+paths that are not static assets.
+
+Observed 2026-07-26: with the field dropped, `prepwise-app.com/zz-nonexistent`
+301'd correctly while `prepwise-app.com/privacy` and `/og-image.png` returned
+200 — the redirect appeared "half working". The pre-existing `["/r/*"]` rule had
+been inert since the day it was written for the same reason; `/r/*` worked only
+because a share id is not a static asset, so the default fallback ran the worker
+anyway.
+
+### Post-deploy verification
+
+`scripts/verify-live-routing.sh` asserts the live invariants (apex redirects
+including for an existing ASSET, both exemptions served directly, AASA identical
+on both hosts and naming our app id, generated SEO files free of `prepwise.app`).
+It runs as the last step of the deploy workflow and is safe to run by hand:
+
+```bash
+bash scripts/verify-live-routing.sh
+```
+
+It exists because `wrangler deploy` **cannot fail on a config field it does not
+recognise**. A green deploy is not evidence that routing is in effect; only the
+live site is.
+
 ## Design
 
 - Font: system font stack (-apple-system, BlinkMacSystemFont, etc.)

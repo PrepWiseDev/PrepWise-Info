@@ -26,7 +26,33 @@ jobs:
           npm ci
           npm run build
 
+      - name: Run worker unit tests
+        run: node worker/apex-redirect.test.mjs
+
       - name: Deploy to Cloudflare
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          # PINNED, and it must stay >= 4.x.
+          #
+          # wrangler-action@v3 defaults to wrangler 3.90.0, which does not know
+          # the `assets.run_worker_first` field. It does not fail on it: it logs
+          # `Unexpected fields found in assets field: "run_worker_first"` as a
+          # WARNING and deploys anyway with the field DROPPED. The deploy goes
+          # green and the routing config simply is not there.
+          #
+          # That silently reverted the apex -> www redirect on 2026-07-26: every
+          # path that existed as a static asset was served by the asset worker
+          # and never reached our code, so only non-asset paths redirected. The
+          # pre-existing ["/r/*"] rule had been inert for the same reason since
+          # the day it was written; /r/* only worked because a share id is not a
+          # static asset, so the default fallback ran the worker anyway.
+          wranglerVersion: "4.114.0"
+
+      # The deploy step above cannot fail on a dropped config field, so assert
+      # the invariants against the LIVE site instead. Each of these fails
+      # silently in production if it regresses: a redirect on /.well-known/ or
+      # /r/ breaks recipe-share Universal Links on phones we never see, and a
+      # missing apex redirect quietly re-splits the ranking signal.
+      - name: Verify live routing invariants
+        run: bash scripts/verify-live-routing.sh
