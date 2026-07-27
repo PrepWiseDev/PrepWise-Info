@@ -164,12 +164,54 @@ function renderGonePage() {
   });
 }
 
+// Canonical host. The apex 301s here so one hostname carries the ranking
+// signal; keep in lockstep with SITE_URL in landing/src/lib/constants.ts.
+const CANONICAL_HOST = 'www.prepwise-app.com';
+const APEX_HOST = 'prepwise-app.com';
+
+/**
+ * Apex -> www redirect, with the two exemptions that must NEVER redirect.
+ *
+ * Returns a 301 Response, or null to fall through to normal handling.
+ *
+ * ONLY the bare apex is redirected. Anything else (the canonical host itself, a
+ * *.workers.dev preview, a Cloudflare preview alias, localhost during
+ * `wrangler dev`) falls through untouched - a host allowlist here would break
+ * previews, and redirecting an unknown host risks bouncing traffic we do not
+ * understand.
+ *
+ * Exemptions:
+ *   /r/*          recipe-share Universal Links were minted on the APEX, and the
+ *                 iOS app registers applinks:prepwise-app.com (apex only).
+ *   /.well-known/* the AASA must resolve on the apex with no redirect. This is
+ *                 belt-and-braces: wrangler.toml already routes /.well-known/*
+ *                 to the asset worker so this code never sees it.
+ */
+export function apexRedirect(url) {
+  if (url.hostname !== APEX_HOST) return null;
+  if (url.pathname === '/r' || url.pathname.startsWith('/r/')) return null;
+  if (url.pathname.startsWith('/.well-known/')) return null;
+
+  const target = new URL(url);
+  target.hostname = CANONICAL_HOST;
+  // url.search carries the query verbatim, which the ad attribution chain
+  // depends on: utm_content survives the hop and becomes the App Store `ct`
+  // token (see landing/src/lib/analytics.ts). Dropping it would silently
+  // unattribute every paid install that lands on the apex.
+  return Response.redirect(target.toString(), 301);
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+
+    const redirect = apexRedirect(url);
+    if (redirect) return redirect;
+
     const match = url.pathname.match(SHARE_ID_RE);
     if (!match) {
-      // Not a share link (shouldn't happen given run_worker_first) - serve assets.
+      // Every non-share path now reaches the worker (run_worker_first = "/*"),
+      // so this is the normal case, not a fallback: serve the static asset.
       return env.ASSETS.fetch(request);
     }
     const data = await fetchShare(match[1]);
