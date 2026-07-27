@@ -180,8 +180,14 @@ export function jsonLdForUseCase(page: UseCasePage) {
   };
 }
 
-/** Wrap a set of nodes in one @graph. One script tag per page, one graph. */
-export function graph(nodes: object[]) {
+/**
+ * Wrap a set of nodes in one @graph. One script tag per page, one graph.
+ *
+ * NOT exported: a page calling this directly would ship a graph with no
+ * Organization, no WebSite and no app node, which is the shape the sitewide
+ * nodes moved out of layout.tsx to prevent. `siteGraph()` is the entry point.
+ */
+function graph(nodes: object[]) {
   return { "@context": "https://schema.org", "@graph": nodes };
 }
 
