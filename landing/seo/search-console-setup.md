@@ -6,9 +6,33 @@ actual search terms people used. It only reports data from the day the property
 was verified onward and it does not backfill, so the value of doing this is
 mostly a function of doing it early.
 
-Everything that can be done without a Google account is already done. What is
-left needs Trent, because Google will only show the verification token to a
-signed-in owner.
+---
+
+## STATUS: done — verified 2026-07-27
+
+| | |
+|---|---|
+| Property type | **Domain** (`prepwise-app.com` — covers apex, www, and future subdomains) |
+| Method | DNS TXT, added by **Google's automated Cloudflare integration** (see below) |
+| Token | `google-site-verification=o4poDJfZ9S_wLd6HiMNLMk621cjBZzDHFheLNdYOL1Q` |
+| Sitemap | `https://www.prepwise-app.com/sitemap.xml` submitted, reported Success |
+
+Recorded here because the token exists **only in Cloudflare DNS** — there is no
+copy in this repo. If the record is ever lost, this is what to put back.
+
+Confirmed independently on 2026-07-27, not just taken from the console screen:
+the TXT record resolves from both `8.8.8.8` and `1.1.1.1`, the SPF and MX
+records survived alongside it, and all 10 sitemap URLs answer 200 with zero
+redirects and a self-referencing canonical.
+
+**Do not delete that TXT record.** Google re-checks it periodically; removing it
+un-verifies the property and stops the search-data feed with no warning
+anywhere. `scripts/verify-live-routing.sh` now asserts it on every deploy, which
+is the only thing watching it.
+
+The rest of this document is the walkthrough that produced that state. Keep it:
+it is still the procedure for Bing, for re-verifying under a different Google
+account, and for any future property.
 
 ---
 
@@ -32,7 +56,20 @@ already at Cloudflare, so it is a two minute job.
    contains one TXT value that looks like
    `google-site-verification=aBcDeF...`. Click **Copy**. Leave this tab open.
 
-### Step 2: add the TXT record in Cloudflare
+### Step 2: add the TXT record
+
+**Try the automated route first — it is what was actually used on 2026-07-27.**
+Because our DNS is at Cloudflare, one of Google's supported providers, the
+verification screen offers to add the record for you instead of showing you a
+value to copy. Click that button, sign in to Cloudflare if asked, and approve
+the permission prompt ("authorize adding the TXT record"). Google writes the
+record and verifies in one step; there is nothing to paste and no second tab.
+
+It is also the safer route: it **adds** a record to the apex TXT set rather than
+editing anything, so it cannot clobber SPF the way hand-editing can. Verified
+afterwards — SPF, MX and DMARC were all intact.
+
+Use the manual steps below only if that button is not offered.
 
 1. Go to **dash.cloudflare.com** and sign in.
 2. On the account home, click the **prepwise-app.com** zone.
@@ -78,6 +115,14 @@ Resume the task from the dashboard. Paste into the resume note which property
 type you created (Domain or URL-prefix) and whether the sitemap shows Success.
 A screenshot is fine. The API read-back that would let an agent confirm this
 itself needs OAuth, which belongs to the later feedback-loop work, not here.
+
+What the agent can confirm without OAuth, and did on 2026-07-27: that the TXT
+record resolves from public resolvers, that SPF/MX/DMARC survived, and that
+every URL the sitemap advertises answers 200 with no redirect and a
+self-referencing canonical. That last one matters because a sitemap listing a
+redirecting or non-canonical URL is not an error at submit time — it surfaces
+days later as "Page with redirect" or "Alternate page with proper canonical
+tag" under Indexing, with nothing pointing at the sitemap as the cause.
 
 ---
 
@@ -160,6 +205,22 @@ the TXT record Bing shows you in Cloudflare DNS, following Step 2 above.
 | Worker token route | In place, empty by default, tested |
 | Build gate against the broken file method | In place (`gsc-verification-asset`) |
 | Live post-deploy assertion for a configured token | In place, prints `skip` while none is set |
+| Domain property verified | **Done 2026-07-27** (DNS TXT, via Google's Cloudflare integration) |
+| Sitemap submitted | **Done 2026-07-27**, status Success |
+| Live assertion that the DNS token still exists | In place, runs on every deploy |
+| Live assertion that SPF survived | In place, runs on every deploy |
 
-Verification and sitemap submission are the only steps that need a human, and
-that is a property of Google's console rather than of anything here.
+Verification and sitemap submission were the only steps that needed a human, and
+that is a property of Google's console rather than of anything here. Both are
+done; nothing in this document is outstanding.
+
+The last two rows exist because the ownership proof lives outside this repo, in
+Cloudflare DNS. Nothing about a deploy touches it, but a DNS cleanup or a zone
+migration can, and the failure is silent — Google just stops reporting. The
+check queries DNS over HTTPS from Google's own resolver, so it needs no
+`dig` in CI, and it deliberately matches *any* `google-site-verification=`
+value: re-verifying under a different Google account legitimately rotates the
+token, and pinning a copy here would be a second source of truth that
+false-alarms. The failure it guards is the record being deleted. If the resolver
+itself cannot be reached the check prints `skip` rather than failing the
+deploy — a flaky guardrail trains everyone to ignore it.

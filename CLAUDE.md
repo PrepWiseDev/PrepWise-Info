@@ -269,6 +269,14 @@ wired, and why the HTML-file verification method needs the worker rather than
 `landing/public/`. Read it before touching anything to do with site
 verification.
 
+**Verified 2026-07-27** as a **Domain** property, by DNS TXT on the apex. That
+record is the ownership proof and it exists **only in Cloudflare DNS** — there
+is no copy in this repo, Google re-checks it periodically, and deleting it
+un-verifies the property and stops the search-data feed silently. The token is
+written down in that doc so it can be restored, and
+`scripts/verify-live-routing.sh` asserts on every deploy both that it is still
+present and that the SPF record sharing that TXT set survived.
+
 ### 2. `landing/seo/on-page-checklist.md` — the checklist
 
 Adapted for an app business from the `jonocatliff/SEO_brief` reference: the
