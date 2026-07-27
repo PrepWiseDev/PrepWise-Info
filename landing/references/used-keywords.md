@@ -9,8 +9,9 @@
 > authority are wasted. This file exists so that never happens by accident.
 
 **Status:** created by ARCHITECT 2026-07-26. Two primaries claimed by S3a (the
-FAQ page and the blog scaffold's seed post). The S4 content batch claims its own
-before it writes anything.
+FAQ page and the blog scaffold's seed post), four more by S3b (the use-case
+landing pages), plus the home page's de-facto primary written down for the first
+time. The S4 content batch claims its own before it writes anything.
 
 ---
 
@@ -61,6 +62,18 @@ That list is enforced page-by-page in
 |---|---|---|---|---|---|
 | 1 | `meal planning app faq` | FAQ | `/faq` | (inferred) | 2026-07-26 |
 | 2 | `how to meal plan from your pantry` | Blog post | `/blog/how-to-meal-plan-from-your-pantry` | (inferred) | 2026-07-26 |
+| 3 | `ai meal planner` | Home | `/` | (inferred, retroactive) | 2026-07-26 |
+| 4 | `meal prep app` | Use case | `/meal-prep-app` | SERP review 2026-07-26 | 2026-07-26 |
+| 5 | `pantry inventory app` | Use case | `/pantry-tracker` | SERP review 2026-07-26 | 2026-07-26 |
+| 6 | `macro tracking meal planner` | Use case | `/macro-meal-planner` | SERP review 2026-07-26 | 2026-07-26 |
+| 7 | `grocery list app` | Use case | `/grocery-list-app` | SERP review 2026-07-26 | 2026-07-26 |
+
+**"SERP review" is not the same as keyword research.** It means the phrase was
+searched, the ranking pages were read, and the page was written to match their
+format and length and beat them on substance. It does NOT mean anyone has a
+volume or difficulty number for it. No keyword export exists for PrepWise yet;
+when one does, re-derive every cluster below and correct it rather than
+assuming the guesses were right.
 
 ### 1. `meal planning app faq` → /faq
 
@@ -107,6 +120,117 @@ from a real export and correct it.***
 here rather than to its own page. "pantry inventory app" was deliberately LEFT
 OUT: that is commercial intent for a product page, not a method article, and
 claiming it here would put this post in competition with the home page.*
+
+### 3. `ai meal planner` → /
+
+- **Primary source:** (inferred, recorded retroactively 2026-07-26). The home
+  page shipped before this register existed and its `<title>` has read
+  "PrepWise: AI Meal Planner & Pantry Tracker for iPhone" since. That is a claim
+  whether or not anyone wrote it down, and an unwritten claim is the one a new
+  page cannibalises by accident.
+- **Search intent:** commercial
+- **Page:** / (status: live)
+- **Claimed:** 2026-07-26
+
+| Secondary keyword | Source |
+|---|---|
+| meal planning app | (inferred) |
+| ai meal planning app | (inferred) |
+| pantry tracker | (inferred) |
+
+*Cluster audit: all inferred, read off the live home page rather than from
+research. The home page also holds the brand term by default. This entry exists
+so the boundary with the S3b landing pages is explicit: home owns the general
+"plan my meals with AI" query, `/meal-prep-app` owns the batch-cooking intent,
+and `/pantry-tracker` owns the inventory intent. If the home page is ever
+rewritten around a different primary, change this entry in the same commit.*
+
+### 4. `meal prep app` → /meal-prep-app
+
+- **Primary source:** SERP review 2026-07-26. Ranking pages: MealPrepPro,
+  Mealime, plus round-up listicles from Eat This Much and FoodiePrep.
+- **Search intent:** commercial
+- **Page:** /meal-prep-app (status: live)
+- **Claimed:** 2026-07-26
+
+| Secondary keyword | Source |
+|---|---|
+| meal prep planner | (inferred) |
+| meal prep app iphone | (inferred) |
+| weekly meal prep app | (inferred) |
+| batch cooking app | (inferred) |
+
+*Cluster audit: the primary came from the SERP, the secondaries are inferred
+variations. "meal prep" is batch-cooking intent and is deliberately kept
+separate from home's "ai meal planner": someone searching "meal prep app" wants
+Sunday-afternoon batch cooking, someone searching "ai meal planner" wants the
+week decided for them. Ranking pages run 550-900 words over five or six
+sections with no FAQ; this page matches that and adds one.*
+
+### 5. `pantry inventory app` → /pantry-tracker
+
+- **Primary source:** SERP review 2026-07-26. Ranking pages: KitchenPal, My
+  Pantry Tracker, Your Food, Pantry Check, PantryPro.
+- **Search intent:** commercial
+- **Page:** /pantry-tracker (status: live)
+- **Claimed:** 2026-07-26
+
+| Secondary keyword | Source |
+|---|---|
+| pantry tracker app | (inferred) |
+| kitchen inventory app | (inferred) |
+| food inventory app iphone | (inferred) |
+| fridge and freezer inventory | (inferred) |
+
+*Cluster audit: this is the primary the seed blog post deliberately LEFT OUT
+("that is commercial intent for a product page, not a method article"). This is
+that product page, so it is claimed here. The ranking pages all sell barcode
+scanning, expiry alerts, and family sync; the position none of them takes is
+that an inventory is only worth keeping if something reads it back, which is
+what this page argues.*
+
+### 6. `macro tracking meal planner` → /macro-meal-planner
+
+- **Primary source:** SERP review 2026-07-26. Ranking pages: Plan to Eat's
+  macro tour page, Macrostax, MODL, Prospre.
+- **Search intent:** commercial
+- **Page:** /macro-meal-planner (status: live)
+- **Claimed:** 2026-07-26
+
+| Secondary keyword | Source |
+|---|---|
+| macro meal planner app | (inferred) |
+| meal planner with macros | (inferred) |
+| high protein meal planner | (inferred) |
+| calorie and macro meal planning | (inferred) |
+
+*Cluster audit: "macro tracking meal planner" is the full phrase rather than
+the shorter "macro meal planner" precisely so it does not collide with home's
+"ai meal planner". Plan to Eat's page is ~550 words over six short sections;
+this one is longer because it also states who it is not for, which none of the
+ranking pages do. Pure calorie-logging terms were left out: that is a different
+intent and a different product.*
+
+### 7. `grocery list app` → /grocery-list-app
+
+- **Primary source:** SERP review 2026-07-26. Ranking pages: Samsung Food, Plan
+  to Eat, MealBoard, Paprika, Cooklist.
+- **Search intent:** commercial
+- **Page:** /grocery-list-app (status: live)
+- **Claimed:** 2026-07-26
+
+| Secondary keyword | Source |
+|---|---|
+| automatic grocery list from recipes | (inferred) |
+| shopping list app iphone | (inferred) |
+| meal plan grocery list | (inferred) |
+| grocery list generator | (inferred) |
+
+*Cluster audit: every ranking page promises the same mechanic, a list generated
+from chosen recipes, and only Cooklist mentions subtracting what you already
+own. That subtraction is the whole page. Note the site's own voice file bans
+"grocery list generator" as PrepWise phrasing; it is recorded here as a search
+term people type, which is a different thing from copy we would write.*
 
 ---
 

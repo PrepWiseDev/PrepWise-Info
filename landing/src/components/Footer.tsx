@@ -1,6 +1,25 @@
 "use client";
 
 import { FOOTER_LINKS, SOCIAL_LINKS, SUPPORT_EMAIL } from "@/lib/constants";
+import { navLinksForUseCases } from "@/lib/usecase";
+
+type LinkGroup = { heading: string; links: { label: string; href: string }[] };
+
+// The "Solutions" group is DERIVED from the use-case page registry rather than
+// re-listed here. A hand-kept copy would be a second source of truth for which
+// landing pages exist, and the failure mode is silent: the page ships, nothing
+// links to it, and it never gets crawled.
+//
+// It sits second, right after Product: these are the pages that should collect
+// the most internal links, and the footer is the one block on every page.
+const GROUPS: LinkGroup[] = [
+  { heading: FOOTER_LINKS[0].heading, links: [...FOOTER_LINKS[0].links] },
+  { heading: "Solutions", links: navLinksForUseCases() },
+  ...FOOTER_LINKS.slice(1).map((group) => ({
+    heading: group.heading,
+    links: [...group.links],
+  })),
+];
 
 function InstagramIcon({ className }: { className?: string }) {
   return (
@@ -55,9 +74,9 @@ export default function Footer() {
           asks for and the cheapest way for a new page to get discovered. */}
       <nav
         aria-label="Site"
-        className="mx-auto max-w-6xl grid grid-cols-2 sm:grid-cols-3 gap-8 pb-10 mb-10 border-b border-pw-border-soft"
+        className="mx-auto max-w-6xl grid grid-cols-2 sm:grid-cols-4 gap-8 pb-10 mb-10 border-b border-pw-border-soft"
       >
-        {FOOTER_LINKS.map((group) => (
+        {GROUPS.map((group) => (
           <div key={group.heading}>
             <h2 className="text-xs font-semibold uppercase tracking-wide text-pw-text-muted mb-3">
               {group.heading}

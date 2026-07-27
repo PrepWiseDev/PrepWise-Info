@@ -7,8 +7,15 @@
 
 import { SITE_URL } from "@/lib/constants";
 import type { BlogPost } from "@/lib/blog";
+import type { UseCasePage } from "@/lib/usecase";
 
 export const ORGANIZATION_ID = `${SITE_URL}/#organization`;
+
+// The two sitewide nodes declared in app/layout.tsx. Referenced by @id from
+// per-page graphs so the whole site stays ONE identity and ONE product to a
+// crawler, rather than a second Organization and a second app per page.
+export const WEBSITE_ID = `${SITE_URL}/#website`;
+export const APP_ID = `${SITE_URL}/#app`;
 
 /**
  * The author identity. `@id` is fixed by references/author.md and must stay
@@ -63,6 +70,35 @@ export function articleJsonLd(post: BlogPost) {
     publisher: { "@id": ORGANIZATION_ID },
     mainEntityOfPage: { "@type": "WebPage", "@id": url },
     keywords: [post.primaryKeyword, ...post.secondaryKeywords].join(", "),
+  };
+}
+
+/**
+ * A use-case landing page.
+ *
+ * `about` points at the sitewide MobileApplication node by @id rather than
+ * redeclaring a SoftwareApplication per page: four pages each declaring their
+ * own copy of the app is four products to a crawler, and the whole reason the
+ * sitewide graph carries an @id is so a page can reference it instead.
+ *
+ * No FAQPage node, deliberately, even though the page renders questions. /faq
+ * owns the site's single FAQPage and this page links to it; see
+ * seo/on-page-checklist.md -> "FAQ SECTION".
+ */
+export function jsonLdForUseCase(page: UseCasePage) {
+  const url = `${SITE_URL}/${page.slug}`;
+  return {
+    "@type": "WebPage",
+    "@id": `${url}#webpage`,
+    url,
+    name: page.title,
+    description: page.description,
+    inLanguage: "en-US",
+    dateModified: page.updatedAt,
+    isPartOf: { "@id": WEBSITE_ID },
+    about: { "@id": APP_ID },
+    primaryImageOfPage: `${SITE_URL}${page.screenshot.src}`,
+    publisher: { "@id": ORGANIZATION_ID },
   };
 }
 

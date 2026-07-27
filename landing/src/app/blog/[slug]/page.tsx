@@ -108,7 +108,10 @@ export default async function BlogPostPage({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <Navbar />
+      {/* Same token the footer CTA uses: the navbar Download button is the first
+          App Store link on the page and would otherwise credit the sitewide
+          default for an install this post earned. */}
+      <Navbar pageCt={appStoreCt(post.slug)} />
       <main className="relative pt-28 pb-24 px-6">
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] rounded-full bg-pw-brand/8 blur-[120px]" />

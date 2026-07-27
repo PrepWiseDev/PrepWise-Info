@@ -6,10 +6,17 @@ import { Menu, X } from "lucide-react";
 import { NAV_LINKS } from "@/lib/constants";
 import { useAppStore } from "@/lib/useAppStore";
 
-export default function Navbar() {
+/**
+ * `pageCt` is the page-level App Store campaign token. It matters here as much
+ * as it does on the in-body CTA: the navbar Download button is the first App
+ * Store link on the page, and without the token an install from it reports
+ * under the sitewide default instead of the page that earned it. An incoming
+ * ad's utm_content still wins over it (see useAppStore).
+ */
+export default function Navbar({ pageCt }: { pageCt?: string } = {}) {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { href: appStoreHref, onClick: trackDownload } = useAppStore();
+  const { href: appStoreHref, onClick: trackDownload } = useAppStore(pageCt);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);

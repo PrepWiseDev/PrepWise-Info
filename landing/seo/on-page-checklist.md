@@ -39,12 +39,53 @@ cd landing && npm run verify:seo     # against the existing out/
 | **faq** | `/faq` | `FAQPage` + `BreadcrumbList`, App Store CTA |
 | **blog-index** | `/blog` | `BreadcrumbList` |
 | **article** | `/blog/*` | `Article` + `BreadcrumbList` + author byline + FAQ + App Store CTA |
+| **use-case** | a top-level keyword page, e.g. `/pantry-tracker` | `WebPage` (referencing the app by `@id`) + `BreadcrumbList` + FAQ + App Store CTA + a **page-level `ct`** |
 | **legal** | `/privacy`, `/terms` | base only; no CTA or FAQ requirements |
 | **error** | `404`, `_not-found` | exempt from the gate entirely (not indexable) |
 
 `classifyPage()` matches the blog INDEX before the `/blog/*` article rule, and
 handles both `blog.html` and `blog/index.html`, so flipping `trailingSlash`
 cannot silently regrade two pages.
+
+A use-case page is a top-level HTML file and is therefore indistinguishable from
+any other page **by path alone**. `classifyPage()` takes the slug list read from
+`content/pages/` as its second argument, so the registry is what identifies
+them; without it they grade as an ordinary `page` and quietly skip the extra
+requirements.
+
+---
+
+## USE-CASE LANDING PAGES
+
+One page, one keyword cluster, one job-to-be-done. Separate from the home page,
+which owns the general "plan my meals" query (registered in
+`../references/used-keywords.md`).
+
+- [ ] Content is a flat TS file in `content/pages/`, registered in
+      `content/pages/index.ts`. **[GATE]** a file nobody imported fails the
+      build (`usecase-unregistered`); so does a registered page that produced no
+      HTML (`usecase-not-built`).
+- [ ] **[GATE] A page-level App Store campaign token**, declared as `ct` on the
+      page object. Shape `lp_<slug-ish>`, lowercase `[a-z0-9_]`, no doubled or
+      trailing underscore, **40 characters maximum**.
+- [ ] **[GATE] The token actually reaches the rendered App Store href.** This is
+      the check that matters: `sanitizeCt()` truncates silently and a page wired
+      without its token still renders a working link, so the only symptom of
+      getting it wrong is an App Store row crediting the wrong page months
+      later. `src/lib/usecase.ts` asserts the token's SHAPE at build time;
+      `verify-seo.mjs` asserts it reached the ARTEFACT.
+- [ ] **[GATE] No two pages share a token** (`usecase-ct-duplicate`). Their
+      installs would merge into one App Store row and neither number would be
+      real.
+- [ ] An incoming ad's `utm_content` still OVERRIDES the page token. Paid
+      attribution is the one with money riding on it; never invert that order.
+      See `~/command-system/marketing/UTM-PLAYBOOK.md`.
+- [ ] The `notFor` block is a REQUIRED field on the page type, not a section
+      someone remembers to write. See `../references/voice.md`.
+- [ ] Before writing: search the primary keyword, read the top-3 ranking pages,
+      and match their format and length to within about 20%. Record what you
+      found in the page file's header comment and in the register's cluster
+      audit, so the next writer can tell a measured decision from a guess.
 
 ---
 

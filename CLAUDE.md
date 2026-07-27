@@ -75,6 +75,9 @@ Landing app (Next.js static export via wrangler.toml → landing/out/):
 - `/faq` → FAQ (the site's ONE `FAQPage` schema — see "The FAQ and the blog")
 - `/blog` → Blog index
 - `/blog/<slug>` → Blog post, generated from `landing/content/blog/`
+- `/<use-case>` → Use-case landing page, generated from `landing/content/pages/`
+  (`/meal-prep-app`, `/pantry-tracker`, `/macro-meal-planner`,
+  `/grocery-list-app`) — see "Use-case landing pages"
 - `/privacy` → Privacy Policy (integrated into landing app)
 - `/terms` → Terms of Use (integrated into landing app)
 
@@ -330,6 +333,53 @@ table had ZERO rows and the App Store had ONE review, so most questions are
 labelled `paa` and are INFERRED from category search patterns rather than
 scraped from a PAA box. That label is the honest one; re-mine both sources
 before the S4 batch and upgrade the labels that earn it.
+
+### Use-case landing pages (S3b, 2026-07-26)
+
+Keyword-targeted product pages, separate from the home page: one page per
+keyword cluster, one job-to-be-done each. The app-business equivalent of the SEO
+brief's city/service pages.
+
+Same shape as the blog. Content is a flat TS file in `landing/content/pages/`,
+registered in `content/pages/index.ts`, rendered by the ROOT dynamic segment
+`src/app/[useCase]/page.tsx` with `dynamicParams = false`. Types and the
+campaign-token rule live in `src/lib/usecase.ts`. Live today:
+`/meal-prep-app`, `/pantry-tracker`, `/macro-meal-planner`, `/grocery-list-app`.
+
+Five things that are load-bearing rather than stylistic:
+
+1. **Each page declares its own App Store campaign token** (`ct: "lp_pantry"`),
+   used when the visit carries NO ad `utm_content`. That is what makes an
+   ORGANIC install attributable to the page that earned it instead of to one
+   sitewide token. **An incoming ad's `utm_content` still overrides it** — paid
+   attribution is the one with money riding on it, and that order must never be
+   inverted. Convention: `~/command-system/marketing/UTM-PLAYBOOK.md` §7.
+2. **The token is checked TWICE, on purpose.** `src/lib/usecase.ts` asserts the
+   SHAPE at module load (lowercase `lp_[a-z0-9_]`, <= 40 chars, unique), which
+   under `output: "export"` fails the build. `verify-seo.mjs` then asserts the
+   token actually reached the rendered App Store href
+   (`usecase-ct-not-rendered`). Neither check can do the other's job: a page
+   wired without its `pageCt` still renders a perfectly working link, and the
+   only symptom is an App Store row crediting the wrong page months later.
+3. **`Navbar` takes a `pageCt` prop.** It renders the FIRST App Store link on
+   the page; without the token that button's installs report under the sitewide
+   default. Any new page type must pass it.
+4. **The registry is hand-maintained and therefore DRIFT-CHECKED**, exactly like
+   the blog's: `usecase-unregistered` (file nobody imported),
+   `usecase-not-built` (registered, produced no HTML), `usecase-ct-duplicate`
+   (two pages sharing a token merges their installs into one App Store row).
+5. **A use-case page is a top-level HTML file**, so `classifyPage()` cannot
+   identify one by path. It takes the slug list read from `content/pages/` as a
+   second argument; without it the page grades as an ordinary `page` and skips
+   the extra requirements silently.
+
+They also follow rules that already existed and are worth restating because they
+are easy to break here: the pages are **enumerated by `sitemap.ts` from the
+content directory, NOT listed in `SITE_ROUTES`** (each carries a real
+`updatedAt`, so a second list is a second place to forget); the footer's
+"Solutions" block is DERIVED from the same registry rather than hand-listed; and
+they render an FAQ section with **no `FAQPage` schema**, linking to `/faq`
+instead, because `/faq` owns the site's single `FAQPage` node.
 
 **Page-level `openGraph` REPLACES the root layout's, it does not merge.** Any
 page that sets its own must restate `images` (import `OG_IMAGE` from

@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { SITE_URL, SITE_ROUTES } from "@/lib/constants";
 import { getAllPosts } from "@/lib/blog";
+import { getAllUseCases } from "@/lib/usecase";
 
 // Generated at build time into out/sitemap.xml by the static export.
 // Routes come from SITE_ROUTES so adding a page cannot silently leave the
@@ -28,5 +29,17 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.6,
   }));
 
-  return [...staticRoutes, ...postRoutes];
+  // Use-case landing pages are enumerated from their content registry for the
+  // same reason blog posts are: each one already carries a real `updatedAt`
+  // content date, so listing them again in SITE_ROUTES would be a second place
+  // to forget. Priority sits above the blog and below the home page: these are
+  // the commercial-intent pages, and the home page is still the strongest.
+  const useCaseRoutes = getAllUseCases().map((page) => ({
+    url: `${SITE_URL}/${page.slug}`,
+    lastModified: page.updatedAt,
+    changeFrequency: "monthly" as const,
+    priority: 0.9,
+  }));
+
+  return [...staticRoutes, ...useCaseRoutes, ...postRoutes];
 }

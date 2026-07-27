@@ -61,7 +61,11 @@ export default function FaqPage() {
         // Serialized from content we control - no user input reaches it.
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <Navbar />
+      {/* The navbar Download button is the FIRST App Store link on the page, so
+          it needs the page token too. Without it, an install from the top of
+          /faq reports under the sitewide default while one from the bottom of
+          the same page reports as "faq". */}
+      <Navbar pageCt="faq" />
       <main className="relative pt-28 pb-24 px-6">
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] rounded-full bg-pw-brand/8 blur-[120px]" />

@@ -204,12 +204,19 @@ export function linksToFaqPage(html) {
 
 /**
  * @param {string} rel path relative to the export root, POSIX separators.
- * @returns {"exempt"|"home"|"faq"|"blog-index"|"article"|"legal"|"page"}
+ * @param {string[]} [knownSlugs] slugs from content/pages/. A use-case page is
+ *   a TOP-LEVEL html file, indistinguishable from any other by path alone, so
+ *   the registry is what tells them apart. Defaults to none, which keeps the
+ *   old two-argument-free behaviour for every existing caller and test.
+ * @returns {"exempt"|"home"|"faq"|"blog-index"|"article"|"legal"|"use-case"|"page"}
  */
-export function classifyPage(rel) {
+export function classifyPage(rel, knownSlugs = []) {
   const p = rel.replace(/^\.?\//, "");
   if (EXEMPT.test("/" + p)) return "exempt";
   if (/^faq(\.html|\/index\.html)$/.test(p)) return "faq";
+  for (const slug of knownSlugs) {
+    if (p === `${slug}.html` || p === `${slug}/index.html`) return "use-case";
+  }
   // Matched BEFORE the /^blog\// article rule so the index is never graded
   // against the Article requirements. Both filename shapes are handled because
   // which one Next emits depends on `trailingSlash`, and a change to that
@@ -330,6 +337,10 @@ export function checkPage({ rel, html, type, siteUrl }) {
   if (type === "article") required.push("Article", "BreadcrumbList");
   if (type === "faq") required.push("FAQPage", "BreadcrumbList");
   if (type === "blog-index") required.push("BreadcrumbList");
+  // A use-case page requires the app node too: it is a product page, and the
+  // sitewide graph in layout.tsx is what it references by @id rather than
+  // declaring a second copy of the product per landing page.
+  if (type === "use-case") required.push("App", "BreadcrumbList");
   for (const group of required) {
     if (!has(group)) {
       findings.push(err(
@@ -351,7 +362,7 @@ export function checkPage({ rel, html, type, siteUrl }) {
   // PrepWise has no phone number and no premises; the App Store click is the
   // conversion event, which is why this replaces the source checklist's
   // click-to-call / NAP items.
-  if (type === "home" || type === "article" || type === "faq") {
+  if (type === "home" || type === "article" || type === "faq" || type === "use-case") {
     if (!/apps\.apple\.com/i.test(html)) {
       findings.push(err("appstore-cta", "no App Store link on the page"));
     }
@@ -461,6 +472,159 @@ export function checkBlogRegistry(outDir, landingRoot = LANDING_ROOT) {
   return findings;
 }
 
+// --- use-case landing pages -------------------------------------------------
+
+/** The slugs declared in content/pages/, read without importing TypeScript. */
+export function listUseCaseSlugs(landingRoot = LANDING_ROOT) {
+  const dir = path.join(landingRoot, "content", "pages");
+  if (!fs.existsSync(dir)) return [];
+  return fs
+    .readdirSync(dir)
+    .filter((f) => f.endsWith(".ts") && f !== "index.ts")
+    .map((f) => {
+      const src = fs.readFileSync(path.join(dir, f), "utf8");
+      const m = src.match(/slug:\s*["']([^"']+)["']/);
+      return m ? m[1] : null;
+    })
+    .filter(Boolean);
+}
+
+/** Every App Store href on the page, with entities decoded. */
+function appStoreHrefs(html) {
+  const out = [];
+  for (const tag of tagsOf(html, "a")) {
+    const href = attrs(tag).href || "";
+    if (/apps\.apple\.com/i.test(href)) out.push(href);
+  }
+  return out;
+}
+
+/**
+ * The use-case landing page drift check.
+ *
+ * Two things it asserts that nothing else can.
+ *
+ * 1. The registry. `content/pages/index.ts` is hand-maintained, exactly like the
+ *    blog's, and a page file nobody imported is a page that silently never
+ *    ships: the file compiles, the build is green, the URL 404s.
+ *
+ * 2. **The campaign token actually reached the rendered App Store link.**
+ *    `src/lib/usecase.ts` asserts the token's SHAPE at build time, but it cannot
+ *    know whether the template passed it through to the href. If a page is added
+ *    without wiring `pageCt`, every organic install from it reports under the
+ *    sitewide default token, the link still works, and there is no error
+ *    anywhere - the only symptom is an App Store row that credits the wrong
+ *    page, months later. One check guards the declaration, this one the artefact.
+ *
+ * @returns {Array} findings, empty when there are no use-case pages at all.
+ */
+export function checkUseCasePages(outDir, landingRoot = LANDING_ROOT) {
+  const dir = path.join(landingRoot, "content", "pages");
+  if (!fs.existsSync(dir)) return [];
+
+  const findings = [];
+  const page = "content/pages/index.ts";
+  const indexPath = path.join(dir, "index.ts");
+  if (!fs.existsSync(indexPath)) {
+    return [{ ...err("usecase-registry-missing", "content/pages/ exists but has no index.ts"), page }];
+  }
+  const indexSrc = fs.readFileSync(indexPath, "utf8");
+
+  const files = fs.readdirSync(dir).filter((f) => f.endsWith(".ts") && f !== "index.ts");
+  const seenCt = new Map();
+
+  for (const file of files) {
+    const base = file.replace(/\.ts$/, "");
+    if (!new RegExp(`["'\`]\\./${base.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}["'\`]`).test(indexSrc)) {
+      findings.push({
+        ...err(
+          "usecase-unregistered",
+          `content/pages/${file} is not imported by index.ts, so the page does not exist on the site`
+        ),
+        page,
+      });
+      continue;
+    }
+
+    const src = fs.readFileSync(path.join(dir, file), "utf8");
+    const slug = (src.match(/slug:\s*["']([^"']+)["']/) || [])[1];
+    const ct = (src.match(/\bct:\s*["']([^"']+)["']/) || [])[1];
+    if (!slug) {
+      findings.push({ ...err("usecase-no-slug", `content/pages/${file} declares no slug`), page });
+      continue;
+    }
+    if (!ct) {
+      findings.push({
+        ...err("usecase-no-ct", `content/pages/${file} declares no App Store campaign token (ct)`),
+        page,
+      });
+      continue;
+    }
+
+    // Shape and ceiling. sanitizeCt() truncates at 40 SILENTLY, so a long token
+    // yields an install row that no longer joins back to the page.
+    if (!/^lp_[a-z0-9_]*[a-z0-9]$/.test(ct) || ct.includes("__")) {
+      findings.push({
+        ...err(
+          "usecase-ct-shape",
+          `campaign token "${ct}" must be lowercase lp_[a-z0-9_], no doubled or trailing underscore`
+        ),
+        page,
+      });
+    }
+    if (ct.length > 40) {
+      findings.push({
+        ...err(
+          "usecase-ct-too-long",
+          `campaign token "${ct}" is ${ct.length} chars; App Store Connect truncates ct at 40 and the install stops joining back to the page`
+        ),
+        page,
+      });
+    }
+    if (seenCt.has(ct)) {
+      findings.push({
+        ...err(
+          "usecase-ct-duplicate",
+          `pages "${seenCt.get(ct)}" and "${slug}" share the campaign token "${ct}"; their installs would merge into one App Store row`
+        ),
+        page,
+      });
+    }
+    seenCt.set(ct, slug);
+
+    const builtPath = [
+      path.join(outDir, `${slug}.html`),
+      path.join(outDir, slug, "index.html"),
+    ].find((p) => fs.existsSync(p));
+    if (!builtPath) {
+      findings.push({
+        ...err(
+          "usecase-not-built",
+          `page "${slug}" is registered but produced no HTML; check generateStaticParams`
+        ),
+        page,
+      });
+      continue;
+    }
+
+    const html = fs.readFileSync(builtPath, "utf8");
+    const hrefs = appStoreHrefs(html);
+    const carrying = hrefs.filter((h) => new URL(h).searchParams.get("ct") === ct);
+    if (carrying.length === 0) {
+      findings.push({
+        ...err(
+          "usecase-ct-not-rendered",
+          `no App Store link on /${slug} carries ct=${ct} (found ${hrefs.length} link(s)); ` +
+          "organic installs from this page would report under the sitewide default token"
+        ),
+        page: `${slug}.html`,
+      });
+    }
+  }
+
+  return findings;
+}
+
 function htmlFiles(dir) {
   const out = [];
   const walk = (abs, rel) => {
@@ -508,9 +672,10 @@ function run(argv) {
   const seenTitle = new Map();
   const seenDesc = new Map();
   const faqPages = [];
+  const slugs = listUseCaseSlugs();
 
   for (const rel of files) {
-    const type = classifyPage(rel);
+    const type = classifyPage(rel, slugs);
     const html = fs.readFileSync(path.join(outDir, rel), "utf8");
     if (type === "exempt") continue;
     checked.push({ rel, type });
@@ -562,6 +727,7 @@ function run(argv) {
   }
 
   findings.push(...checkBlogRegistry(outDir));
+  findings.push(...checkUseCasePages(outDir));
 
   const errors = findings.filter((f) => f.level === "error");
   const warnings = findings.filter((f) => f.level === "warn");
@@ -572,7 +738,7 @@ function run(argv) {
       outDir,
       siteUrl,
       pagesChecked: checked,
-      skipped: files.filter((f) => classifyPage(f) === "exempt"),
+      skipped: files.filter((f) => classifyPage(f, slugs) === "exempt"),
       errors,
       warnings,
     }, null, 2));
@@ -918,6 +1084,135 @@ function selfTest() {
       fs.rmSync(root, { recursive: true, force: true });
     }
   });
+  // --- use-case landing pages
+  check("a use-case page is classified only when the registry names its slug", () => {
+    assert(classifyPage("meal-prep-app.html", ["meal-prep-app"]) === "use-case", "flat file");
+    assert(classifyPage("meal-prep-app/index.html", ["meal-prep-app"]) === "use-case", "nested");
+    // Without the registry it is an ordinary page, which is what keeps every
+    // pre-existing caller of the one-argument form behaving as before.
+    assert(classifyPage("meal-prep-app.html") === "page", "no registry means no reclassification");
+    assert(classifyPage("faq.html", ["faq"]) === "faq", "faq still wins over the registry");
+    assert(classifyPage("404.html", ["404"]) === "exempt", "exempt still wins over the registry");
+  });
+  check("a use-case page needs App + BreadcrumbList and an App Store link", () => {
+    const bare = codes(goodPage(), "use-case");
+    assert(bare.includes("schema-missing"), `expected schema-missing, got ${JSON.stringify(bare)}`);
+    const full = goodPage({
+      jsonld: JSON.stringify({
+        "@graph": [
+          { "@type": "Organization" }, { "@type": "WebSite" },
+          { "@type": "MobileApplication" }, { "@type": "BreadcrumbList" },
+        ],
+      }),
+    });
+    assert(codes(full, "use-case").length === 0, `expected none, got ${JSON.stringify(codes(full, "use-case"))}`);
+    const noCta = goodPage({
+      body: "<p>no cta</p>",
+      jsonld: JSON.stringify({
+        "@graph": [
+          { "@type": "Organization" }, { "@type": "WebSite" },
+          { "@type": "MobileApplication" }, { "@type": "BreadcrumbList" },
+        ],
+      }),
+    });
+    assert(codes(noCta, "use-case").includes("appstore-cta"), "expected appstore-cta");
+  });
+
+  const APP_LINK = (ct) =>
+    `<a href="https://apps.apple.com/app/apple-store/id6754949361?pt=128248695&amp;ct=${ct}&amp;mt=8">Download</a>`;
+  const withTempPages = (fn) => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "verify-seo-uc-"));
+    try {
+      fs.mkdirSync(path.join(root, "content", "pages"), { recursive: true });
+      fs.mkdirSync(path.join(root, "out"), { recursive: true });
+      return fn(root);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  };
+  const writeUseCase = (root, file, slug, ct) =>
+    fs.writeFileSync(
+      path.join(root, "content", "pages", file),
+      `export const page = { slug: "${slug}", ct: "${ct}", title: "t" };\n`
+    );
+  const writePagesIndex = (root, files) =>
+    fs.writeFileSync(
+      path.join(root, "content", "pages", "index.ts"),
+      files.map((f, i) => `import { page as p${i} } from "./${f}";`).join("\n") +
+        `\nexport const USE_CASE_PAGES = [${files.map((_, i) => `p${i}`).join(", ")}];\n`
+    );
+  const writeBuilt = (root, slug, ct) =>
+    fs.writeFileSync(path.join(root, "out", `${slug}.html`), `<html><body>${APP_LINK(ct)}</body></html>`);
+  const ucCodes = (root) =>
+    checkUseCasePages(path.join(root, "out"), root).map((f) => f.code);
+
+  check("a registered, built page whose ct reached the link produces no findings", () => {
+    withTempPages((root) => {
+      writeUseCase(root, "a-page.ts", "a-page", "lp_a_page");
+      writePagesIndex(root, ["a-page"]);
+      writeBuilt(root, "a-page", "lp_a_page");
+      const found = ucCodes(root);
+      assert(found.length === 0, `expected none, got ${JSON.stringify(found)}`);
+    });
+  });
+  check("a page file nobody imported is caught", () => {
+    withTempPages((root) => {
+      writeUseCase(root, "a-page.ts", "a-page", "lp_a_page");
+      writeUseCase(root, "orphan.ts", "orphan", "lp_orphan");
+      writePagesIndex(root, ["a-page"]);
+      writeBuilt(root, "a-page", "lp_a_page");
+      assert(ucCodes(root).includes("usecase-unregistered"), "expected usecase-unregistered");
+    });
+  });
+  check("a registered page that produced no HTML is caught", () => {
+    withTempPages((root) => {
+      writeUseCase(root, "a-page.ts", "a-page", "lp_a_page");
+      writePagesIndex(root, ["a-page"]);
+      assert(ucCodes(root).includes("usecase-not-built"), "expected usecase-not-built");
+    });
+  });
+  // THE one this check exists for: the page ships, the link works, and every
+  // organic install from it is credited to the sitewide default token instead.
+  check("a page whose ct never reached the rendered App Store link is caught", () => {
+    withTempPages((root) => {
+      writeUseCase(root, "a-page.ts", "a-page", "lp_a_page");
+      writePagesIndex(root, ["a-page"]);
+      writeBuilt(root, "a-page", "Landing%20Page%20Download%20Button");
+      assert(ucCodes(root).includes("usecase-ct-not-rendered"), "expected usecase-ct-not-rendered");
+    });
+  });
+  check("a malformed or over-long campaign token is caught", () => {
+    withTempPages((root) => {
+      writeUseCase(root, "a.ts", "a", "LP_Shouty");
+      writeUseCase(root, "b.ts", "b", `lp_${"x".repeat(38)}`);
+      writePagesIndex(root, ["a", "b"]);
+      writeBuilt(root, "a", "LP_Shouty");
+      writeBuilt(root, "b", `lp_${"x".repeat(38)}`);
+      const found = ucCodes(root);
+      assert(found.includes("usecase-ct-shape"), `expected usecase-ct-shape, got ${JSON.stringify(found)}`);
+      assert(found.includes("usecase-ct-too-long"), `expected usecase-ct-too-long, got ${JSON.stringify(found)}`);
+    });
+  });
+  check("two pages sharing a campaign token is caught", () => {
+    withTempPages((root) => {
+      writeUseCase(root, "a.ts", "a", "lp_same");
+      writeUseCase(root, "b.ts", "b", "lp_same");
+      writePagesIndex(root, ["a", "b"]);
+      writeBuilt(root, "a", "lp_same");
+      writeBuilt(root, "b", "lp_same");
+      assert(ucCodes(root).includes("usecase-ct-duplicate"), "expected usecase-ct-duplicate");
+    });
+  });
+  check("no content/pages directory means no use-case findings", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "verify-seo-uc-"));
+    try {
+      assert(checkUseCasePages(path.join(root, "out"), root).length === 0, "expected none");
+      assert(listUseCaseSlugs(root).length === 0, "expected no slugs");
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   check("an exempt page is never checked", () => {
     const found = checkPage({ rel: "404.html", html: "<html></html>", type: "exempt", siteUrl: SITE });
     assert(found.length === 0, `expected none, got ${JSON.stringify(found)}`);
