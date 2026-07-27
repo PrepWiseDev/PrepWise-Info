@@ -15,6 +15,10 @@ VECTOR (Marketing agent) has read/write access to this repository for content ed
 ### Editable by VECTOR
 - `landing/src/components/*.tsx` — marketing copy, headlines, CTAs, features
 - `landing/src/app/page.tsx` — page structure
+- `landing/content/faq.ts` — FAQ questions and answers (keep `source` +
+  `provenance` on every question; answers stay PLAIN TEXT, see "SEO content")
+- `landing/content/blog/*.ts` — blog posts, one file per post, plus the one-line
+  registration in `landing/content/blog/index.ts`
 - `landing/src/app/globals.css` — styles
 - `landing/src/components/constants.ts` — shared content
 - `landing/public/` — marketing assets
