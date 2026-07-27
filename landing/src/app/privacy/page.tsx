@@ -7,11 +7,15 @@ export const metadata: Metadata = {
   title: "Privacy Policy – PrepWise",
   description:
     "PrepWise Privacy Policy. Learn how we collect, use, and protect your data in the PrepWise meal planning app.",
+  alternates: {
+    canonical: "/privacy",
+  },
   openGraph: {
     title: "Privacy Policy – PrepWise",
     description:
       "How PrepWise collects, uses, and protects your data.",
     type: "website",
+    url: "/privacy",
   },
 };
 

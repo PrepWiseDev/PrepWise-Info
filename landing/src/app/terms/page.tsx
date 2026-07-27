@@ -7,11 +7,15 @@ export const metadata: Metadata = {
   title: "Terms of Use – PrepWise",
   description:
     "PrepWise Terms of Use (EULA). Rules and conditions for using the PrepWise AI-powered meal planning app.",
+  alternates: {
+    canonical: "/terms",
+  },
   openGraph: {
     title: "Terms of Use – PrepWise",
     description:
       "Terms and conditions for using the PrepWise app.",
     type: "website",
+    url: "/terms",
   },
 };
 

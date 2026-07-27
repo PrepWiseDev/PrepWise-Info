@@ -1,6 +1,6 @@
 # PrepWise Landing Page
 
-Marketing landing page for [PrepWise](https://prepwise.app) — an AI-powered meal planning iOS app.
+Marketing landing page for [PrepWise](https://www.prepwise-app.com) — an AI-powered meal planning iOS app.
 
 Built with Next.js (static export), Tailwind CSS, Framer Motion, and Lucide icons. Deployed to Cloudflare Pages.
 
@@ -65,9 +65,13 @@ Pull requests get preview deployments on a unique URL.
 
 ### Custom Domain
 
-After first deploy, add custom domain in Cloudflare Pages settings:
-- `prepwise.app` (or whatever domain you own)
-- Cloudflare handles SSL automatically
+The live site is `www.prepwise-app.com` (canonical). The apex
+`prepwise-app.com` 301s to it from the worker, except `/r/*` and
+`/.well-known/*` which must keep serving on the apex - see the root
+`CLAUDE.md` section "Domain and canonical host".
+
+Note: `prepwise.app` is NOT our domain. It belongs to an unrelated company;
+never point a canonical, sitemap, or link at it.
 
 ## Tech Stack
 

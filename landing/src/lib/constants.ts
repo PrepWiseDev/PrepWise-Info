@@ -1,3 +1,27 @@
+// Canonical origin for the marketing site. ONE source of truth: metadataBase,
+// every per-page canonical, robots.ts, sitemap.ts and the JSON-LD all read it.
+//
+// It is deliberately the WWW host. The apex (prepwise-app.com) 301s here from the
+// Cloudflare worker, with two exemptions that must never be canonicalised:
+//   - /r/*          recipe-share Universal Links were minted on the apex
+//   - /.well-known/* the AASA must resolve on the apex with no redirect
+// The iOS app registers `applinks:prepwise-app.com` (apex only), which is what
+// makes those two exemptions load-bearing rather than cosmetic.
+export const SITE_URL = "https://www.prepwise-app.com";
+
+// Every crawlable route in the static export. sitemap.ts enumerates this, so a
+// new route is added here once rather than in a hand-kept sitemap.xml.
+//
+// `lastModified` is a real content date, NOT the build date. A sitemap that
+// stamps "now" on every deploy teaches crawlers the field is meaningless, and
+// Google discounts it. Bump the entry when the page's content actually changes;
+// for the legal routes that is the "Last Updated" line the page itself renders.
+export const SITE_ROUTES = [
+  { path: "/", lastModified: "2026-07-26", changeFrequency: "weekly", priority: 1.0 },
+  { path: "/privacy", lastModified: "2026-07-01", changeFrequency: "yearly", priority: 0.5 },
+  { path: "/terms", lastModified: "2026-03-09", changeFrequency: "yearly", priority: 0.5 },
+] as const;
+
 export const NAV_LINKS = [
   { label: "Features", href: "#features" },
   { label: "How It Works", href: "#how-it-works" },
