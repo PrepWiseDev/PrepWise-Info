@@ -22,14 +22,24 @@ set -uo pipefail
 APEX="https://prepwise-app.com"
 WWW="https://www.prepwise-app.com"
 
-failures=0
-checks=0
+# Cloudflare finishes propagating a deploy across colos a little after wrangler
+# returns, so a check run seconds later can still meet a stale asset on one
+# edge. Observed 2026-07-26: 26s after deploy, apex /privacy still answered 200
+# while / and /og-image.png already redirected; it passed on the next attempt.
+#
+# So the whole suite retries as a unit. A flaky guardrail is worse than none - it
+# trains everyone to ignore it - and a genuine regression still fails every
+# attempt and fails the build.
+ATTEMPTS=${VERIFY_ATTEMPTS:-6}
+SETTLE_SECONDS=${VERIFY_SETTLE_SECONDS:-15}
 
 # Cloudflare caches by URL, so a freshly deployed redirect can lose a race with
 # an asset cached under the old routing. A unique query proves the routing
 # itself, and doubles as the query-preservation check the ad attribution chain
-# depends on.
-CB="cb=$(date +%s)-$RANDOM"
+# depends on. Re-minted per attempt inside run_all_checks.
+failures=0
+checks=0
+CB=""
 
 pass() { checks=$((checks + 1)); printf '  ok    %s\n' "$1"; }
 fail() {
@@ -78,60 +88,80 @@ expect_200() { # name url
   if [ "$code" = "200" ]; then pass "$1"; else fail "$1" "got $code, expected 200"; fi
 }
 
-echo "== apex canonicalises to www =="
-expect_redirect "apex / -> www" "$APEX/?$CB" "$WWW/?$CB"
-expect_redirect "apex /privacy -> www" "$APEX/privacy?$CB" "$WWW/privacy?$CB"
-# An existing static asset must ALSO redirect. This is the exact check that
-# catches a dropped run_worker_first: without it the asset worker answers first
-# and our code never runs.
-expect_redirect "apex asset /og-image.png -> www" "$APEX/og-image.png?$CB" "$WWW/og-image.png?$CB"
-expect_redirect "apex preserves utm_content" \
-  "$APEX/?utm_content=verify_probe_v1" "$WWW/?utm_content=verify_probe_v1"
+run_all_checks() {
+  failures=0
+  checks=0
+  # Fresh cache-buster per attempt so a retry cannot be answered by an entry
+  # the previous attempt just created.
+  CB="cb=$(date +%s)-$RANDOM"
 
-echo "== apex exemptions must NEVER redirect =="
-# Apple fetches the AASA from the exact host in the link and does not follow
-# redirects. The iOS app registers applinks:prepwise-app.com (the APEX).
-expect_no_redirect "apex AASA served directly" "$APEX/.well-known/apple-app-site-association"
-# Recipe-share links were minted on the apex.
-expect_no_redirect "apex /r/<id> served directly" "$APEX/r/verify-probe-invalid-id"
+  echo "== apex canonicalises to www =="
+  expect_redirect "apex / -> www" "$APEX/?$CB" "$WWW/?$CB"
+  expect_redirect "apex /privacy -> www" "$APEX/privacy?$CB" "$WWW/privacy?$CB"
+  # An existing static asset must ALSO redirect. This is the exact check that
+  # catches a dropped run_worker_first: without it the asset worker answers first
+  # and our code never runs.
+  expect_redirect "apex asset /og-image.png -> www" "$APEX/og-image.png?$CB" "$WWW/og-image.png?$CB"
+  expect_redirect "apex preserves utm_content" \
+    "$APEX/?utm_content=verify_probe_v1" "$WWW/?utm_content=verify_probe_v1"
 
-echo "== www serves the site and never redirects =="
-expect_200 "www /" "$WWW/"
-expect_200 "www /privacy" "$WWW/privacy"
-expect_200 "www /terms" "$WWW/terms"
-expect_no_redirect "www AASA served directly" "$WWW/.well-known/apple-app-site-association"
+  echo "== apex exemptions must NEVER redirect =="
+  # Apple fetches the AASA from the exact host in the link and does not follow
+  # redirects. The iOS app registers applinks:prepwise-app.com (the APEX).
+  expect_no_redirect "apex AASA served directly" "$APEX/.well-known/apple-app-site-association"
+  # Recipe-share links were minted on the apex.
+  expect_no_redirect "apex /r/<id> served directly" "$APEX/r/verify-probe-invalid-id"
 
-echo "== AASA content is intact on both hosts =="
-aasa_apex=$(curl -sS -m 20 "$APEX/.well-known/apple-app-site-association" 2>/dev/null)
-aasa_www=$(curl -sS -m 20 "$WWW/.well-known/apple-app-site-association" 2>/dev/null)
-if printf '%s' "$aasa_apex" | grep -q '2DDFX89NYB.com.prepwise.mobile'; then
-  pass "apex AASA names our app id"
-else
-  fail "apex AASA names our app id" "appID missing from apex AASA"
-fi
-if [ "$aasa_apex" = "$aasa_www" ]; then
-  pass "AASA identical on apex and www"
-else
-  fail "AASA identical on apex and www" "apex and www AASA differ"
-fi
+  echo "== www serves the site and never redirects =="
+  expect_200 "www /" "$WWW/"
+  expect_200 "www /privacy" "$WWW/privacy"
+  expect_200 "www /terms" "$WWW/terms"
+  expect_no_redirect "www AASA served directly" "$WWW/.well-known/apple-app-site-association"
 
-echo "== generated SEO files point at www only =="
-robots=$(curl -sS -m 20 "$WWW/robots.txt" 2>/dev/null)
-sitemap=$(curl -sS -m 20 "$WWW/sitemap.xml" 2>/dev/null)
-if printf '%s' "$robots" | grep -q "Sitemap: $WWW/sitemap.xml"; then
-  pass "robots.txt points at the www sitemap"
-else
-  fail "robots.txt points at the www sitemap" "got: $(printf '%s' "$robots" | tr '\n' ' ')"
-fi
-# prepwise.app is NOT our domain. It belongs to an unrelated company, and the
-# deployed robots.txt pointed crawlers at their sitemap until 2026-07-26.
-for f in robots sitemap; do
-  body=$([ "$f" = robots ] && printf '%s' "$robots" || printf '%s' "$sitemap")
-  if printf '%s' "$body" | grep -qE 'https://(www\.)?prepwise\.app|legal\.prepwise\.app'; then
-    fail "$f.xml/txt free of the wrong domain" "references prepwise.app, which we do not own"
+  echo "== AASA content is intact on both hosts =="
+  aasa_apex=$(curl -sS -m 20 "$APEX/.well-known/apple-app-site-association" 2>/dev/null)
+  aasa_www=$(curl -sS -m 20 "$WWW/.well-known/apple-app-site-association" 2>/dev/null)
+  if printf '%s' "$aasa_apex" | grep -q '2DDFX89NYB.com.prepwise.mobile'; then
+    pass "apex AASA names our app id"
   else
-    pass "$f free of the wrong domain"
+    fail "apex AASA names our app id" "appID missing from apex AASA"
   fi
+  if [ "$aasa_apex" = "$aasa_www" ]; then
+    pass "AASA identical on apex and www"
+  else
+    fail "AASA identical on apex and www" "apex and www AASA differ"
+  fi
+
+  echo "== generated SEO files point at www only =="
+  robots=$(curl -sS -m 20 "$WWW/robots.txt" 2>/dev/null)
+  sitemap=$(curl -sS -m 20 "$WWW/sitemap.xml" 2>/dev/null)
+  if printf '%s' "$robots" | grep -q "Sitemap: $WWW/sitemap.xml"; then
+    pass "robots.txt points at the www sitemap"
+  else
+    fail "robots.txt points at the www sitemap" "got: $(printf '%s' "$robots" | tr '\n' ' ')"
+  fi
+  # prepwise.app is NOT our domain. It belongs to an unrelated company, and the
+  # deployed robots.txt pointed crawlers at their sitemap until 2026-07-26.
+  for f in robots sitemap; do
+    body=$([ "$f" = robots ] && printf '%s' "$robots" || printf '%s' "$sitemap")
+    if printf '%s' "$body" | grep -qE 'https://(www\.)?prepwise\.app|legal\.prepwise\.app'; then
+      fail "$f.xml/txt free of the wrong domain" "references prepwise.app, which we do not own"
+    else
+      pass "$f free of the wrong domain"
+    fi
+  done
+}
+
+for attempt in $(seq 1 "$ATTEMPTS"); do
+  if [ "$attempt" -gt 1 ]; then
+    echo "-- retry $attempt/$ATTEMPTS after ${SETTLE_SECONDS}s (deploy may still be propagating) --"
+    sleep "$SETTLE_SECONDS"
+  fi
+  # Called directly, NOT via $(...): command substitution runs the function in a
+  # subshell, so `failures` would never propagate back and this guard would
+  # always "pass". A vacuous check is the one failure mode a guardrail cannot have.
+  run_all_checks
+  [ "$failures" -eq 0 ] && break
 done
 
 echo
