@@ -22,6 +22,10 @@ set -uo pipefail
 APEX="https://prepwise-app.com"
 WWW="https://www.prepwise-app.com"
 
+# Resolved from this script's own location so it runs from any cwd (CI invokes
+# it from the repo root, a human may not).
+REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+
 # Cloudflare finishes propagating a deploy across colos a little after wrangler
 # returns, so a check run seconds later can still meet a stale asset on one
 # edge. Observed 2026-07-26: 26s after deploy, apex /privacy still answered 200
@@ -42,6 +46,9 @@ checks=0
 CB=""
 
 pass() { checks=$((checks + 1)); printf '  ok    %s\n' "$1"; }
+# Deliberately does NOT count as a check: a skipped assertion proves nothing and
+# must not inflate the "all N checks passed" line at the end.
+skip() { printf '  skip  %s\n' "$1"; }
 fail() {
   checks=$((checks + 1))
   failures=$((failures + 1))
@@ -135,6 +142,34 @@ run_all_checks() {
     pass "AASA identical on apex and www"
   else
     fail "AASA identical on apex and www" "apex and www AASA differ"
+  fi
+
+  echo "== Google Search Console verification files =="
+  # Read the configured tokens out of the worker rather than restating them here:
+  # a second list is a second place to forget. Node is already a build
+  # dependency, and worker/index.js has no side effects at module scope.
+  gsc_tokens=$(node -e \
+    "import('$REPO_ROOT/worker/index.js').then(m=>console.log(m.GOOGLE_VERIFICATION_FILES.join(' ')))" \
+    2>/dev/null)
+  if [ -z "$gsc_tokens" ]; then
+    # NOT a pass. Nothing was checked, and printing "ok" for that is how a
+    # guardrail turns into decoration.
+    skip "no GSC token configured yet (GOOGLE_VERIFICATION_FILES in worker/index.js is empty)"
+  else
+    for token in $gsc_tokens; do
+      # GSC does not follow redirects, and Cloudflare's asset binding 307s
+      # /x.html -> /x. If either host redirects, the property silently fails to
+      # verify and the SEO feedback loop has no data source.
+      expect_no_redirect "www /$token served directly" "$WWW/$token"
+      expect_no_redirect "apex /$token served directly" "$APEX/$token"
+      expect_200 "www /$token" "$WWW/$token"
+      body=$(curl -sS -m 20 "$WWW/$token" 2>/dev/null)
+      if [ "$body" = "google-site-verification: $token" ]; then
+        pass "$token body is the exact verification string"
+      else
+        fail "$token body is the exact verification string" "got: ${body:0:80}"
+      fi
+    done
   fi
 
   echo "== generated SEO files point at www only =="

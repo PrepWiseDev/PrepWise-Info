@@ -57,6 +57,18 @@ const FORBIDDEN_DOMAIN = /prepwise\.app\b/i;
 // against a 50-60 char title bar produces a failure nobody can act on.
 const EXEMPT = /(^|\/)(404|_not-found)(\.html|\/index\.html)$/;
 
+// A Google Search Console verification file dropped into landing/public/ lands
+// in the export as a top-level google<token>.html. It must NOT ship that way,
+// and the reason is invisible from here: Cloudflare's asset binding redirects
+// `/x.html` to `/x` (verified live: /404.html -> 307 -> /404), and GSC's
+// HTML-file check does not follow redirects. The file would be deployed, look
+// present in the repo, and the property would simply never verify.
+//
+// The token is served from worker/index.js instead, which answers before both
+// the apex redirect and the assets. Kept in lockstep with
+// GOOGLE_VERIFICATION_RE there. See landing/seo/search-console-setup.md.
+const GSC_ASSET = /(^|\/)google[a-z0-9]{6,}\.html$/i;
+
 // schema.org subtypes we accept for each requirement. MobileApplication is a
 // subclass of SoftwareApplication; either satisfies the app requirement.
 const SCHEMA_ALIASES = {
@@ -625,6 +637,27 @@ export function checkUseCasePages(outDir, landingRoot = LANDING_ROOT) {
   return findings;
 }
 
+/**
+ * A finding if `rel` is a Google Search Console verification file, else null.
+ *
+ * Not folded into classifyPage(): this is not a page type to grade leniently,
+ * it is a file that must not exist in the export at all.
+ */
+export function gscVerificationFinding(rel) {
+  if (!GSC_ASSET.test(rel)) return null;
+  return {
+    level: "error",
+    code: "gsc-verification-asset",
+    page: rel,
+    message:
+      `${rel} is a Google Search Console verification file in the static export. ` +
+      "Cloudflare's asset binding redirects /x.html to /x and GSC does not follow " +
+      "redirects, so this deploys green and the property never verifies. Delete it " +
+      "from landing/public/ and add the filename to GOOGLE_VERIFICATION_FILES in " +
+      "worker/index.js instead (see landing/seo/search-console-setup.md).",
+  };
+}
+
 function htmlFiles(dir) {
   const out = [];
   const walk = (abs, rel) => {
@@ -675,6 +708,14 @@ function run(argv) {
   const slugs = listUseCaseSlugs();
 
   for (const rel of files) {
+    // Before classification: this file has no title, no canonical and no h1, so
+    // grading it as a page buries the one actionable finding under eight
+    // unactionable ones.
+    const gsc = gscVerificationFinding(rel);
+    if (gsc) {
+      findings.push(gsc);
+      continue;
+    }
     const type = classifyPage(rel, slugs);
     const html = fs.readFileSync(path.join(outDir, rel), "utf8");
     if (type === "exempt") continue;
@@ -1211,6 +1252,35 @@ function selfTest() {
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }
+  });
+
+  // --- the Google Search Console verification file must not ship as an asset
+  check("a GSC verification file in the export is a build failure", () => {
+    const found = gscVerificationFinding("google1234567890abcdef.html");
+    assert(found, "expected a finding");
+    assert(found.code === "gsc-verification-asset", found.code);
+    assert(found.level === "error", "must fail the build, not warn");
+    // The message has to carry the fix. The failure mode it prevents is
+    // invisible from the build output, so "this file is wrong" is not enough.
+    assert(/worker\/index\.js/.test(found.message), "message must name the fix");
+  });
+  check("the GSC rule does not fire on real pages", () => {
+    for (const rel of [
+      "index.html", "privacy.html", "faq.html", "blog.html",
+      "grocery-list-app.html", "blog/how-to-meal-plan-for-the-week.html",
+      "google.html",          // no token
+      "googleabc.html",       // too short to be a token
+      "google-analytics.html", // a hyphen means it is a content slug, not a token
+    ]) {
+      assert(gscVerificationFinding(rel) === null, `false positive on ${rel}`);
+    }
+  });
+  // Without the early `continue` the file would be graded as an ordinary page
+  // and produce ~8 unactionable findings around the one that matters. Pin the
+  // premise: classifyPage does NOT exempt it on its own.
+  check("classifyPage alone would grade a GSC file as a normal page", () => {
+    assert(classifyPage("google1234567890abcdef.html") === "page",
+      "if this ever becomes 'exempt', the GSC guard is silently dead");
   });
 
   check("an exempt page is never checked", () => {
