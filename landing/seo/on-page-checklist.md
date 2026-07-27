@@ -311,6 +311,10 @@ it. Below 1500 words a TOC is furniture between the reader and the answer.
 
 ## PUBLISHING A BLOG POST
 
+**The end-to-end procedure lives in [`CONTENT-CYCLE.md`](./CONTENT-CYCLE.md)**:
+pick a cluster, claim the primary, read the SERP, draft, verify, open a PR. This
+section is the mechanical part of it.
+
 A post is a flat TypeScript file in `content/blog/`, plus one line in
 `content/blog/index.ts`. No CMS and no MDX toolchain: the post is data, the
 template renders it, `next build` writes the HTML.
