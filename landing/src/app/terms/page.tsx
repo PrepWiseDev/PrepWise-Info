@@ -139,7 +139,7 @@ export default function TermsPage() {
         <section>
           <h2 className="text-xl font-semibold text-pw-text mb-3">9. Privacy</h2>
           <p>
-            Your use of the App is subject to our <a href="/privacy" className="text-pw-link hover:underline">Privacy Policy</a>,
+            Your use of the App is subject to our <a href="/privacy" className="text-pw-link underline underline-offset-2">Privacy Policy</a>,
             which is incorporated into these Terms by reference. By using the App, you consent to the data practices
             described in the Privacy Policy.
           </p>
@@ -214,7 +214,7 @@ export default function TermsPage() {
           <h2 className="text-xl font-semibold text-pw-text mb-3">17. Contact Us</h2>
           <p>If you have questions about these Terms, please contact us:</p>
           <ul className="list-disc pl-5 mt-2">
-            <li>Email: <a href="mailto:support@prepwise-app.com" className="text-pw-link hover:underline">support@prepwise-app.com</a></li>
+            <li>Email: <a href="mailto:support@prepwise-app.com" className="text-pw-link underline underline-offset-2">support@prepwise-app.com</a></li>
           </ul>
         </section>
       </LegalLayout>

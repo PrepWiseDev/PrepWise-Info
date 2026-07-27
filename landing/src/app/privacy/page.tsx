@@ -81,13 +81,13 @@ export default function PrivacyPage() {
               reports and stack traces, device type, operating system version, app version, IP address, and a pseudonymous
               user identifier. We use this data for app stability and diagnostics: detecting, diagnosing, and fixing crashes
               and errors. See the{" "}
-              <a href="https://sentry.io/privacy/" className="text-pw-link hover:underline" target="_blank" rel="noopener noreferrer">Sentry Privacy Policy</a>.
+              <a href="https://sentry.io/privacy/" className="text-pw-link underline underline-offset-2" target="_blank" rel="noopener noreferrer">Sentry Privacy Policy</a>.
             </li>
             <li>
               <strong className="text-pw-text">PostHog (product analytics):</strong> Collects in-app usage and interaction
               events, device type, operating system version, app version, IP address, and a pseudonymous user identifier. We
               use this data for product improvement: understanding feature usage and how the App performs. See the{" "}
-              <a href="https://posthog.com/privacy" className="text-pw-link hover:underline" target="_blank" rel="noopener noreferrer">PostHog Privacy Policy</a>.
+              <a href="https://posthog.com/privacy" className="text-pw-link underline underline-offset-2" target="_blank" rel="noopener noreferrer">PostHog Privacy Policy</a>.
             </li>
           </ul>
           <p className="mt-3">
@@ -164,7 +164,7 @@ export default function PrivacyPage() {
             To withdraw consent for analytics and crash reporting, turn off{" "}
             <strong className="text-pw-text">Settings &rarr; Preferences &rarr; Privacy &rarr; &ldquo;Share Usage &amp; Diagnostics&rdquo;</strong>{" "}
             in the App. To exercise your other rights, contact us at{" "}
-            <a href="mailto:support@prepwise-app.com" className="text-pw-link hover:underline">support@prepwise-app.com</a>. You
+            <a href="mailto:support@prepwise-app.com" className="text-pw-link underline underline-offset-2">support@prepwise-app.com</a>. You
             can also delete your account and all associated data at any time from{" "}
             <strong className="text-pw-text">Profile &amp; Settings &rarr; Account &rarr; Delete Account</strong>.
           </p>
@@ -188,7 +188,7 @@ export default function PrivacyPage() {
           </p>
           <ul className="list-disc pl-5 space-y-2">
             <li><strong className="text-pw-text">In the App (recommended):</strong> go to <strong className="text-pw-text">Settings &rarr; Preferences &rarr; Privacy</strong> and turn off <strong className="text-pw-text">&ldquo;Share Usage &amp; Diagnostics.&rdquo;</strong> This single toggle immediately stops both product analytics (PostHog) and crash/diagnostics reporting (Sentry).</li>
-            <li><strong className="text-pw-text">By email:</strong> contact us at <a href="mailto:support@prepwise-app.com?subject=Do%20Not%20Sell%20or%20Share" className="text-pw-link hover:underline">support@prepwise-app.com</a> with the subject line &ldquo;Do Not Sell or Share.&rdquo;</li>
+            <li><strong className="text-pw-text">By email:</strong> contact us at <a href="mailto:support@prepwise-app.com?subject=Do%20Not%20Sell%20or%20Share" className="text-pw-link underline underline-offset-2">support@prepwise-app.com</a> with the subject line &ldquo;Do Not Sell or Share.&rdquo;</li>
             <li><strong className="text-pw-text">Global Privacy Control (GPC):</strong> on our website, we honor GPC browser signals where technically feasible. GPC is a browser-based signal and does not apply within the native App; please use the in-app toggle above to opt out inside the App.</li>
           </ul>
           <p className="mt-3">We will not discriminate against you for exercising any of these rights.</p>
@@ -199,7 +199,7 @@ export default function PrivacyPage() {
           <p>
             The App is not directed at children under 13, and we do not knowingly collect personal information from
             children under 13. If you believe a child has provided us with personal information, please contact us at{" "}
-            <a href="mailto:support@prepwise-app.com" className="text-pw-link hover:underline">support@prepwise-app.com</a>{" "}
+            <a href="mailto:support@prepwise-app.com" className="text-pw-link underline underline-offset-2">support@prepwise-app.com</a>{" "}
             and we will delete it promptly.
           </p>
         </section>
@@ -225,7 +225,7 @@ export default function PrivacyPage() {
           <h2 className="text-xl font-semibold text-pw-text mb-3">14. Contact Us</h2>
           <p>If you have questions or concerns about this Privacy Policy, please contact us:</p>
           <ul className="list-disc pl-5 mt-2">
-            <li>Email: <a href="mailto:support@prepwise-app.com" className="text-pw-link hover:underline">support@prepwise-app.com</a></li>
+            <li>Email: <a href="mailto:support@prepwise-app.com" className="text-pw-link underline underline-offset-2">support@prepwise-app.com</a></li>
           </ul>
         </section>
       </LegalLayout>
