@@ -1,6 +1,6 @@
 "use client";
 
-import { LEGAL_LINKS, SOCIAL_LINKS, SUPPORT_EMAIL } from "@/lib/constants";
+import { FOOTER_LINKS, SOCIAL_LINKS, SUPPORT_EMAIL } from "@/lib/constants";
 
 function InstagramIcon({ className }: { className?: string }) {
   return (
@@ -50,6 +50,38 @@ function XIcon({ className }: { className?: string }) {
 export default function Footer() {
   return (
     <footer className="border-t border-pw-border-soft py-12 px-6">
+      {/* Sitemap-style link block. Every crawlable page is reachable from every
+          other page, which is the internal-linking baseline the SEO checklist
+          asks for and the cheapest way for a new page to get discovered. */}
+      <nav
+        aria-label="Site"
+        className="mx-auto max-w-6xl grid grid-cols-2 sm:grid-cols-3 gap-8 pb-10 mb-10 border-b border-pw-border-soft"
+      >
+        {FOOTER_LINKS.map((group) => (
+          <div key={group.heading}>
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-pw-text-muted mb-3">
+              {group.heading}
+            </h2>
+            <ul className="space-y-2 text-sm text-pw-text-subtle">
+              {group.links.map((link) => (
+                <li key={link.href}>
+                  <a href={link.href} className="hover:text-pw-text transition-colors">
+                    {link.label}
+                  </a>
+                </li>
+              ))}
+              {group.heading === "Company" && (
+                <li>
+                  <a href={SUPPORT_EMAIL} className="hover:text-pw-text transition-colors">
+                    Support
+                  </a>
+                </li>
+              )}
+            </ul>
+          </div>
+        ))}
+      </nav>
+
       <div className="mx-auto max-w-6xl flex flex-col md:flex-row items-center justify-between gap-8">
         {/* Logo & copyright */}
         <div className="flex flex-col items-center md:items-start gap-2">
@@ -57,28 +89,6 @@ export default function Footer() {
           <p className="text-pw-text-muted text-xs">
             &copy; 2026 PrepWise LLC. All rights reserved.
           </p>
-        </div>
-
-        {/* Legal links */}
-        <div className="flex items-center gap-6 text-sm text-pw-text-subtle">
-          <a
-            href={LEGAL_LINKS.privacy}
-            className="hover:text-pw-text transition-colors"
-          >
-            Privacy Policy
-          </a>
-          <a
-            href={LEGAL_LINKS.terms}
-            className="hover:text-pw-text transition-colors"
-          >
-            Terms of Use
-          </a>
-          <a
-            href={SUPPORT_EMAIL}
-            className="hover:text-pw-text transition-colors"
-          >
-            Support
-          </a>
         </div>
 
         {/* Social links */}

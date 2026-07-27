@@ -68,6 +68,9 @@ PrepWise-Info/
 
 Landing app (Next.js static export via wrangler.toml → landing/out/):
 - `/` → Home (landing page)
+- `/faq` → FAQ (the site's ONE `FAQPage` schema — see "The FAQ and the blog")
+- `/blog` → Blog index
+- `/blog/<slug>` → Blog post, generated from `landing/content/blog/`
 - `/privacy` → Privacy Policy (integrated into landing app)
 - `/terms` → Terms of Use (integrated into landing app)
 
@@ -269,6 +272,60 @@ perfectly happily.
 **Adding a page means:** claim its primary in `used-keywords.md` first, write it
 against the checklist, add it to `SITE_ROUTES` in `landing/src/lib/constants.ts`
 so the generated sitemap picks it up, and let the gate check it.
+
+### The FAQ and the blog (S3a, 2026-07-26)
+
+**Content is flat TypeScript in `landing/content/`, not a CMS.** `content/faq.ts`
+is the FAQ; `content/blog/<slug>.ts` is one post per file, registered in
+`content/blog/index.ts`. A post is data, the template renders it, `next build`
+writes the HTML. Full workflow: `landing/seo/on-page-checklist.md` →
+"Publishing a blog post".
+
+Four rules that are load-bearing rather than stylistic:
+
+1. **ONE `FAQPage` on the site, and `/faq` owns it.** The home page and every
+   blog post render an FAQ section with NO schema and a link to `/faq`. Two
+   surfaces publishing the same answers as schema is how Google picks one and
+   discards the other page's work. `verify-seo.mjs` enforces BOTH halves: more
+   than one page declaring `FAQPage` is `faqpage-duplicate`, and an FAQ section
+   with neither the schema nor a `/faq` link is `schema-faq`.
+2. **An FAQ answer is PLAIN TEXT.** The same string is rendered on the page and
+   serialized into the JSON-LD, so schema text and visible text cannot drift.
+   Google treats schema-only FAQ content as a violation. Keep markup out of
+   `answer` fields; blog body copy gets a deliberately tiny inline vocabulary
+   (`[label](/href)` and `**bold**`) and nothing else.
+3. **Blog posts are enumerated by `sitemap.ts` from the content directory, NOT
+   listed in `SITE_ROUTES`.** `/faq` and `/blog` are in `SITE_ROUTES`; the posts
+   are not. A post's `updatedAt` is already a real content date shown on the
+   page, so the sitemap and the byline cannot disagree.
+4. **`content/blog/index.ts` is hand-maintained and therefore DRIFT-CHECKED.**
+   `verify-seo.mjs` fails the build when a file in `content/blog/` is not
+   imported there (`blog-post-unregistered` — otherwise the post compiles, the
+   deploy is green, and the page simply does not exist), when a registered post
+   produced no HTML (`blog-post-not-built`), and when a slug would push the App
+   Store campaign token past 40 characters (`blog-ct-too-long` — `sanitizeCt()`
+   truncates SILENTLY, so an over-long slug yields installs that no longer join
+   back to the post that earned them).
+
+**Page-level App Store attribution.** `useAppStore(pageCt)` takes a page-level
+`ct` token ("faq", "blog-<slug>"), baked into the STATIC HTML rather than
+applied at hydration. An incoming ad's `utm_content` still overrides it, because
+paid attribution is the one with money riding on it. Convention and the golden
+rule: `~/command-system/marketing/UTM-PLAYBOOK.md`.
+
+**The author card and `Person` schema use ONLY the confirmed-facts section of
+`references/author.md`.** Its draft bios are still `TODO(trent: confirm)`, and
+an author bio is the worst place on a site to publish an unapproved sentence.
+`Person` omits `url`, `image`, and `sameAs` because `/about`, a headshot, and
+the profile links do not exist; the `@id` (`/about#trent`) is fixed by
+`author.md` and must stay stable forever.
+
+**FAQ provenance.** Each question in `content/faq.ts` carries `source` and
+`provenance`. When the page was written (2026-07-26) the ops `support_tickets`
+table had ZERO rows and the App Store had ONE review, so most questions are
+labelled `paa` and are INFERRED from category search patterns rather than
+scraped from a PAA box. That label is the honest one; re-mine both sources
+before the S4 batch and upgrade the labels that earn it.
 
 **Page-level `openGraph` REPLACES the root layout's, it does not merge.** Any
 page that sets its own must restate `images` (import `OG_IMAGE` from

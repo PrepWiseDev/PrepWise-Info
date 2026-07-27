@@ -4,6 +4,7 @@ import Features from "@/components/Features";
 import Showcase from "@/components/Showcase";
 import HowItWorks from "@/components/HowItWorks";
 import Stats from "@/components/Stats";
+import HomeFaq from "@/components/HomeFaq";
 import EmailCapture from "@/components/EmailCapture";
 import Footer from "@/components/Footer";
 
@@ -17,6 +18,7 @@ export default function Home() {
         <Showcase />
         <HowItWorks />
         <Stats />
+        <HomeFaq />
         <EmailCapture />
       </main>
       <Footer />

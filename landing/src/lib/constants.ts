@@ -16,8 +16,15 @@ export const SITE_URL = "https://www.prepwise-app.com";
 // stamps "now" on every deploy teaches crawlers the field is meaningless, and
 // Google discounts it. Bump the entry when the page's content actually changes;
 // for the legal routes that is the "Last Updated" line the page itself renders.
+//
+// Blog POSTS are deliberately NOT listed here. They are enumerated by
+// sitemap.ts from the content directory, so publishing a post cannot leave the
+// sitemap stale by forgetting a line in two places at once. Everything that is
+// not generated from content still belongs here.
 export const SITE_ROUTES = [
   { path: "/", lastModified: "2026-07-26", changeFrequency: "weekly", priority: 1.0 },
+  { path: "/faq", lastModified: "2026-07-26", changeFrequency: "monthly", priority: 0.8 },
+  { path: "/blog", lastModified: "2026-07-26", changeFrequency: "weekly", priority: 0.7 },
   { path: "/privacy", lastModified: "2026-07-01", changeFrequency: "yearly", priority: 0.5 },
   { path: "/terms", lastModified: "2026-03-09", changeFrequency: "yearly", priority: 0.5 },
 ] as const;
@@ -38,10 +45,41 @@ export const OG_IMAGE = {
   alt: "PrepWise: meal planning that starts with what is in your pantry",
 } as const;
 
+// In-page anchors only work on the home page, so every nav link is written
+// absolute-from-root ("/#features"). A bare "#features" on /faq scrolls
+// nowhere and looks broken.
 export const NAV_LINKS = [
-  { label: "Features", href: "#features" },
-  { label: "How It Works", href: "#how-it-works" },
-  { label: "Get Started", href: "#cta" },
+  { label: "Features", href: "/#features" },
+  { label: "How It Works", href: "/#how-it-works" },
+  { label: "Blog", href: "/blog" },
+  { label: "FAQ", href: "/faq" },
+] as const;
+
+// The footer's internal-linking block. Every crawlable page reachable from
+// every page: the baseline internal link graph the SEO checklist asks for.
+export const FOOTER_LINKS = [
+  {
+    heading: "Product",
+    links: [
+      { label: "Features", href: "/#features" },
+      { label: "How it works", href: "/#how-it-works" },
+      { label: "Download for iPhone", href: "/#cta" },
+    ],
+  },
+  {
+    heading: "Learn",
+    links: [
+      { label: "Blog", href: "/blog" },
+      { label: "FAQ", href: "/faq" },
+    ],
+  },
+  {
+    heading: "Company",
+    links: [
+      { label: "Privacy Policy", href: "/privacy" },
+      { label: "Terms of Use", href: "/terms" },
+    ],
+  },
 ] as const;
 
 // App Store download link.
@@ -62,6 +100,21 @@ export const LEGAL_LINKS = {
   privacy: "/privacy",
   terms: "/terms",
 } as const;
+
+// The footer renders its legal links from FOOTER_LINKS (so they sit in the
+// sitemap-style block with everything else), which means the two lists could
+// silently diverge and ship a footer pointing at a page that does not exist.
+// FOOTER_LINKS stays a literal so its labels stay typed, so the pairing is
+// asserted at module load instead. Under `output: "export"` this runs during
+// the build and fails it, which is the point.
+if (
+  !FOOTER_LINKS.some((g) => g.links.some((l) => l.href === LEGAL_LINKS.privacy)) ||
+  !FOOTER_LINKS.some((g) => g.links.some((l) => l.href === LEGAL_LINKS.terms))
+) {
+  throw new Error(
+    "FOOTER_LINKS no longer contains both LEGAL_LINKS paths: the footer and the legal routes have drifted"
+  );
+}
 
 export const SOCIAL_LINKS = {
   instagram: "https://www.instagram.com/prepwiseapp/",

@@ -8,8 +8,9 @@
 > picks one of them, usually the weaker one, and the other page's links and
 > authority are wasted. This file exists so that never happens by accident.
 
-**Status:** empty. Created by ARCHITECT 2026-07-26. No PrepWise SEO content
-page has shipped yet.
+**Status:** created by ARCHITECT 2026-07-26. Two primaries claimed by S3a (the
+FAQ page and the blog scaffold's seed post). The S4 content batch claims its own
+before it writes anything.
 
 ---
 
@@ -56,11 +57,56 @@ That list is enforced page-by-page in
 
 ## Claimed primaries
 
-*(none yet)*
-
 | # | Primary keyword | Page | Slug | Source | Claimed |
 |---|---|---|---|---|---|
-| | | | | | |
+| 1 | `meal planning app faq` | FAQ | `/faq` | (inferred) | 2026-07-26 |
+| 2 | `how to meal plan from your pantry` | Blog post | `/blog/how-to-meal-plan-from-your-pantry` | (inferred) | 2026-07-26 |
+
+### 1. `meal planning app faq` → /faq
+
+- **Primary source:** (inferred). No keyword export exists yet. The page's job
+  is to answer the questions asked before a download, so the intent is real even
+  where the volume is unmeasured.
+- **Search intent:** informational, close to commercial (the reader is deciding)
+- **Page:** /faq (status: live)
+- **Claimed:** 2026-07-26
+
+| Secondary keyword | Source |
+|---|---|
+| is prepwise free | (inferred) |
+| pantry tracker app questions | (inferred) |
+| meal planning app android | (inferred) |
+| does prepwise track macros | (inferred) |
+
+*Cluster audit: all inferred, from the question patterns the category's own
+listings and round-ups answer (searched 2026-07-26 for "meal prep app",
+"pantry tracking app", "macro tracking meal planner"). Nothing here came from a
+keyword tool, and the register says so rather than implying research that did
+not happen. The slug is `/faq` because that is the conventional, linkable URL
+for this page type; the distinguishing token is in it, the rest of the primary
+is what the whole site is about. **The S4 batch should re-derive this cluster
+from a real export and correct it.***
+
+### 2. `how to meal plan from your pantry` → /blog/how-to-meal-plan-from-your-pantry
+
+- **Primary source:** (inferred). A how-to phrasing of the site's core
+  positioning: planning from what you already own.
+- **Search intent:** informational
+- **Page:** /blog/how-to-meal-plan-from-your-pantry (status: live)
+- **Claimed:** 2026-07-26
+
+| Secondary keyword | Source |
+|---|---|
+| pantry meal planning | (inferred) |
+| meal plan with what I have | (inferred) |
+| cook from what you have | (inferred) |
+| pantry inventory meal plan | (inferred) |
+
+*Cluster audit: all inferred. "cook from what you have" is the same intent
+(someone standing in front of a full cupboard wanting dinner) so it belongs
+here rather than to its own page. "pantry inventory app" was deliberately LEFT
+OUT: that is commercial intent for a product page, not a method article, and
+claiming it here would put this post in competition with the home page.*
 
 ---
 

@@ -28,6 +28,7 @@
 // a human check and is deliberately NOT approximated by a regex.
 
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -185,15 +186,35 @@ export function hasFaqSection(html) {
   );
 }
 
+/**
+ * True when the page links to the canonical FAQ page.
+ *
+ * This is what lets a page render an FAQ EXCERPT without carrying FAQPage
+ * schema. The rule the site follows is "one FAQPage per site, owned by /faq";
+ * a page that shows a few questions and points at the owner is correct, and a
+ * page that shows questions and points nowhere is an orphaned answer block.
+ * The other half of the rule (nobody else may declare FAQPage) is enforced
+ * across pages in run().
+ */
+export function linksToFaqPage(html) {
+  return /href=["'](?:https?:\/\/[^"']*)?\/faq(?:[/#?"']|["'])/i.test(html);
+}
+
 // --- page classification ----------------------------------------------------
 
 /**
  * @param {string} rel path relative to the export root, POSIX separators.
- * @returns {"exempt"|"home"|"article"|"legal"|"page"}
+ * @returns {"exempt"|"home"|"faq"|"blog-index"|"article"|"legal"|"page"}
  */
 export function classifyPage(rel) {
   const p = rel.replace(/^\.?\//, "");
   if (EXEMPT.test("/" + p)) return "exempt";
+  if (/^faq(\.html|\/index\.html)$/.test(p)) return "faq";
+  // Matched BEFORE the /^blog\// article rule so the index is never graded
+  // against the Article requirements. Both filename shapes are handled because
+  // which one Next emits depends on `trailingSlash`, and a change to that
+  // setting must not silently reclassify two pages.
+  if (/^blog(\.html|\/index\.html)$/.test(p)) return "blog-index";
   if (/^blog\//.test(p)) return "article";
   if (/^(privacy|terms)(\.html|\/index\.html)$/.test(p)) return "legal";
   if (p === "index.html") return "home";
@@ -307,6 +328,8 @@ export function checkPage({ rel, html, type, siteUrl }) {
   const required = ["Organization", "WebSite"];
   if (type === "home") required.push("App");
   if (type === "article") required.push("Article", "BreadcrumbList");
+  if (type === "faq") required.push("FAQPage", "BreadcrumbList");
+  if (type === "blog-index") required.push("BreadcrumbList");
   for (const group of required) {
     if (!has(group)) {
       findings.push(err(
@@ -315,10 +338,12 @@ export function checkPage({ rel, html, type, siteUrl }) {
       ));
     }
   }
-  if (hasFaqSection(html) && !has("FAQPage")) {
+  // An FAQ section either OWNS the schema or POINTS AT the page that does.
+  // See linksToFaqPage() for why the second branch is a rule and not a loophole.
+  if (hasFaqSection(html) && !has("FAQPage") && !linksToFaqPage(html)) {
     findings.push(err(
       "schema-faq",
-      "page renders an FAQ section but has no FAQPage JSON-LD"
+      "page renders an FAQ section with no FAQPage JSON-LD and no link to /faq"
     ));
   }
 
@@ -326,7 +351,7 @@ export function checkPage({ rel, html, type, siteUrl }) {
   // PrepWise has no phone number and no premises; the App Store click is the
   // conversion event, which is why this replaces the source checklist's
   // click-to-call / NAP items.
-  if (type === "home" || type === "article") {
+  if (type === "home" || type === "article" || type === "faq") {
     if (!/apps\.apple\.com/i.test(html)) {
       findings.push(err("appstore-cta", "no App Store link on the page"));
     }
@@ -353,6 +378,87 @@ function readSiteUrl() {
   const m = src.match(/export\s+const\s+SITE_URL\s*=\s*["']([^"']+)["']/);
   if (!m) throw new Error(`could not read SITE_URL from ${file}`);
   return m[1].replace(/\/+$/, "");
+}
+
+/**
+ * The blog registry drift check.
+ *
+ * `content/blog/index.ts` is a hand-maintained list of posts. A hand-maintained
+ * list is fine only next to something that notices when it drifts: a post file
+ * that nobody imported is a page that silently never ships, and nothing else in
+ * the build reports it (the file compiles, the site builds, the deploy is
+ * green, the post does not exist).
+ *
+ * Also asserts the App Store campaign token stays inside App Store Connect's
+ * 40-character limit. `sanitizeCt()` truncates SILENTLY, so a long slug would
+ * produce a token that no longer joins an install back to the post that earned
+ * it, with no error anywhere.
+ *
+ * @returns {Array} findings, empty when there is no blog at all.
+ */
+export function checkBlogRegistry(outDir, landingRoot = LANDING_ROOT) {
+  const dir = path.join(landingRoot, "content", "blog");
+  if (!fs.existsSync(dir)) return [];
+
+  const findings = [];
+  const page = "content/blog/index.ts";
+  const indexPath = path.join(dir, "index.ts");
+  if (!fs.existsSync(indexPath)) {
+    return [{ ...err("blog-registry-missing", "content/blog/ exists but has no index.ts"), page }];
+  }
+  const indexSrc = fs.readFileSync(indexPath, "utf8");
+
+  const postFiles = fs
+    .readdirSync(dir)
+    .filter((f) => f.endsWith(".ts") && f !== "index.ts");
+
+  for (const file of postFiles) {
+    const base = file.replace(/\.ts$/, "");
+    if (!new RegExp(`["'\`]\\./${base.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}["'\`]`).test(indexSrc)) {
+      findings.push({
+        ...err(
+          "blog-post-unregistered",
+          `content/blog/${file} is not imported by index.ts, so the post does not exist on the site`
+        ),
+        page,
+      });
+      continue;
+    }
+
+    const src = fs.readFileSync(path.join(dir, file), "utf8");
+    const slugMatch = src.match(/slug:\s*["']([^"']+)["']/);
+    if (!slugMatch) {
+      findings.push({ ...err("blog-post-no-slug", `content/blog/${file} declares no slug`), page });
+      continue;
+    }
+    const slug = slugMatch[1];
+
+    const ct = `blog-${slug}`;
+    if (ct.length > 40) {
+      findings.push({
+        ...err(
+          "blog-ct-too-long",
+          `campaign token "${ct}" is ${ct.length} chars; App Store Connect truncates ct at 40 and the install stops joining back to the post`
+        ),
+        page,
+      });
+    }
+
+    const built =
+      fs.existsSync(path.join(outDir, "blog", `${slug}.html`)) ||
+      fs.existsSync(path.join(outDir, "blog", slug, "index.html"));
+    if (!built) {
+      findings.push({
+        ...err(
+          "blog-post-not-built",
+          `post "${slug}" is registered but produced no HTML; check generateStaticParams`
+        ),
+        page,
+      });
+    }
+  }
+
+  return findings;
 }
 
 function htmlFiles(dir) {
@@ -401,6 +507,7 @@ function run(argv) {
   const checked = [];
   const seenTitle = new Map();
   const seenDesc = new Map();
+  const faqPages = [];
 
   for (const rel of files) {
     const type = classifyPage(rel);
@@ -408,6 +515,7 @@ function run(argv) {
     if (type === "exempt") continue;
     checked.push({ rel, type });
     findings.push(...checkPage({ rel, html, type, siteUrl }));
+    if (schemaTypes(html).types.includes("FAQPage")) faqPages.push(rel);
 
     // Cross-page duplicates. Two pages sharing a title or description are two
     // pages competing for the same query; Google picks one and the other
@@ -437,6 +545,23 @@ function run(argv) {
       }
     }
   }
+
+  // ONE FAQPage per site. Two surfaces publishing the same answers as schema is
+  // how Google ends up choosing one of them and discarding the other page's
+  // work, which is the same failure the used-keywords register exists to
+  // prevent. The dedicated /faq page owns it; everything else links to it.
+  if (faqPages.length > 1) {
+    findings.push({
+      level: "error",
+      code: "faqpage-duplicate",
+      page: faqPages.join(", "),
+      message:
+        `${faqPages.length} pages declare FAQPage JSON-LD; exactly one page (/faq) may own it. ` +
+        "An FAQ excerpt elsewhere links to /faq instead.",
+    });
+  }
+
+  findings.push(...checkBlogRegistry(outDir));
 
   const errors = findings.filter((f) => f.level === "error");
   const warnings = findings.filter((f) => f.level === "warn");
@@ -625,6 +750,33 @@ function selfTest() {
     assert(!codes(html).includes("schema-faq"), "expected FAQPage to satisfy it");
   });
 
+  // --- the FAQ excerpt rule: own the schema, or link to the page that does
+  check("an FAQ section with a link to /faq needs no FAQPage schema", () => {
+    const html = goodPage({
+      h1: '<h1>Title</h1><h2>Frequently asked questions</h2>',
+      body:
+        '<a href="/faq">Read the full PrepWise FAQ</a>' +
+        '<a href="https://apps.apple.com/app/apple-store/id6754949361">Download</a>',
+    });
+    assert(!codes(html).includes("schema-faq"), `unexpected schema-faq: ${JSON.stringify(codes(html))}`);
+  });
+  check("an FAQ section with neither schema nor a /faq link still fails", () => {
+    const html = goodPage({
+      h1: "<h1>Title</h1><h2>FAQ</h2>",
+      body:
+        '<a href="/blog">Blog</a>' +
+        '<a href="https://apps.apple.com/app/apple-store/id6754949361">Download</a>',
+    });
+    assert(codes(html).includes("schema-faq"), "expected schema-faq");
+  });
+  check("linksToFaqPage does not match /faq-something", () => {
+    assert(linksToFaqPage('<a href="/faq">x</a>'), "site-relative");
+    assert(linksToFaqPage('<a href="/faq#billing">x</a>'), "with fragment");
+    assert(linksToFaqPage('<a href="https://www.prepwise-app.com/faq">x</a>'), "absolute");
+    assert(!linksToFaqPage('<a href="/faq-archive">x</a>'), "false positive on /faq-archive");
+    assert(!linksToFaqPage('<a href="/blog">x</a>'), "false positive on /blog");
+  });
+
   // --- page classification
   check("error pages are exempt, real pages are not", () => {
     assert(classifyPage("404.html") === "exempt", "404.html");
@@ -634,6 +786,137 @@ function selfTest() {
     assert(classifyPage("terms.html") === "legal", "terms.html");
     assert(classifyPage("blog/how-to-meal-plan.html") === "article", "blog page");
     assert(classifyPage("about.html") === "page", "about.html");
+  });
+  check("the blog index is not graded as an article, either filename shape", () => {
+    assert(classifyPage("blog.html") === "blog-index", "blog.html");
+    assert(classifyPage("blog/index.html") === "blog-index", "blog/index.html");
+    assert(classifyPage("blog/a-post/index.html") === "article", "nested post");
+  });
+  check("the FAQ page has its own type, either filename shape", () => {
+    assert(classifyPage("faq.html") === "faq", "faq.html");
+    assert(classifyPage("faq/index.html") === "faq", "faq/index.html");
+  });
+
+  // --- the FAQ and blog-index page types carry their own schema requirements
+  check("an faq page without FAQPage + BreadcrumbList fails", () => {
+    const found = codes(goodPage(), "faq");
+    assert(found.filter((c) => c === "schema-missing").length === 2,
+      `expected 2 schema-missing, got ${JSON.stringify(found)}`);
+  });
+  check("a complete faq page passes", () => {
+    const html = goodPage({
+      jsonld: JSON.stringify({
+        "@graph": [
+          { "@type": "Organization" }, { "@type": "WebSite" },
+          { "@type": "FAQPage" }, { "@type": "BreadcrumbList" },
+        ],
+      }),
+    });
+    const found = codes(html, "faq");
+    assert(found.length === 0, `expected none, got ${JSON.stringify(found)}`);
+  });
+  check("an faq page with no App Store link fails", () => {
+    const html = goodPage({
+      body: "<p>no cta</p>",
+      jsonld: JSON.stringify({
+        "@graph": [
+          { "@type": "Organization" }, { "@type": "WebSite" },
+          { "@type": "FAQPage" }, { "@type": "BreadcrumbList" },
+        ],
+      }),
+    });
+    assert(codes(html, "faq").includes("appstore-cta"), "expected appstore-cta");
+  });
+  check("the blog index needs BreadcrumbList but not Article or a CTA", () => {
+    const bare = codes(goodPage({ body: "<p>index</p>" }), "blog-index");
+    assert(bare.includes("schema-missing"), "expected schema-missing for BreadcrumbList");
+    const html = goodPage({
+      body: "<p>index</p>",
+      jsonld: JSON.stringify({
+        "@graph": [
+          { "@type": "Organization" }, { "@type": "WebSite" }, { "@type": "BreadcrumbList" },
+        ],
+      }),
+    });
+    const found = codes(html, "blog-index");
+    assert(found.length === 0, `expected none, got ${JSON.stringify(found)}`);
+  });
+
+  // --- the blog registry drift check
+  const withTempBlog = (fn) => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "verify-seo-"));
+    try {
+      fs.mkdirSync(path.join(root, "content", "blog"), { recursive: true });
+      fs.mkdirSync(path.join(root, "out", "blog"), { recursive: true });
+      return fn(root);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  };
+  const writePost = (root, file, slug) =>
+    fs.writeFileSync(
+      path.join(root, "content", "blog", file),
+      `export const post = { slug: "${slug}", title: "t" };\n`
+    );
+  const writeIndex = (root, files) =>
+    fs.writeFileSync(
+      path.join(root, "content", "blog", "index.ts"),
+      files.map((f, i) => `import { post as p${i} } from "./${f}";`).join("\n") +
+        `\nexport const POSTS = [${files.map((_, i) => `p${i}`).join(", ")}];\n`
+    );
+  const registryCodes = (root) =>
+    checkBlogRegistry(path.join(root, "out"), root).map((f) => f.code);
+
+  check("a registered, built post produces no registry findings", () => {
+    withTempBlog((root) => {
+      writePost(root, "a-post.ts", "a-post");
+      writeIndex(root, ["a-post"]);
+      fs.writeFileSync(path.join(root, "out", "blog", "a-post.html"), "<html></html>");
+      const found = registryCodes(root);
+      assert(found.length === 0, `expected none, got ${JSON.stringify(found)}`);
+    });
+  });
+  check("a post file nobody imported is caught", () => {
+    withTempBlog((root) => {
+      writePost(root, "a-post.ts", "a-post");
+      writePost(root, "orphan.ts", "orphan");
+      writeIndex(root, ["a-post"]);
+      fs.writeFileSync(path.join(root, "out", "blog", "a-post.html"), "<html></html>");
+      assert(registryCodes(root).includes("blog-post-unregistered"), "expected blog-post-unregistered");
+    });
+  });
+  check("a registered post that produced no HTML is caught", () => {
+    withTempBlog((root) => {
+      writePost(root, "a-post.ts", "a-post");
+      writeIndex(root, ["a-post"]);
+      assert(registryCodes(root).includes("blog-post-not-built"), "expected blog-post-not-built");
+    });
+  });
+  check("a slug whose campaign token would be truncated is caught", () => {
+    withTempBlog((root) => {
+      const slug = "a".repeat(36); // "blog-" + 36 = 41 > 40
+      writePost(root, "long.ts", slug);
+      writeIndex(root, ["long"]);
+      fs.writeFileSync(path.join(root, "out", "blog", `${slug}.html`), "<html></html>");
+      assert(registryCodes(root).includes("blog-ct-too-long"), "expected blog-ct-too-long");
+    });
+  });
+  check("a nested post directory counts as built", () => {
+    withTempBlog((root) => {
+      writePost(root, "a-post.ts", "a-post");
+      writeIndex(root, ["a-post"]);
+      fs.mkdirSync(path.join(root, "out", "blog", "a-post"), { recursive: true });
+      fs.writeFileSync(path.join(root, "out", "blog", "a-post", "index.html"), "<html></html>");
+      assert(registryCodes(root).length === 0, "nested index.html should count");
+    });
+  });
+  check("no content/blog directory means no registry findings", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "verify-seo-"));
+    try {
+      assert(checkBlogRegistry(path.join(root, "out"), root).length === 0, "expected none");
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
   });
   check("an exempt page is never checked", () => {
     const found = checkPage({ rel: "404.html", html: "<html></html>", type: "exempt", siteUrl: SITE });

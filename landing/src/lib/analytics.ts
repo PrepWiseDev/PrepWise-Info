@@ -55,25 +55,41 @@ function sanitizeCt(value: string): string {
 }
 
 /**
+ * Set the `ct` campaign token on an App Store URL. Pure, and safe on the server,
+ * so a page-level token can be baked into the static HTML rather than only
+ * appearing after hydration.
+ */
+export function withCampaignToken(baseUrl: string, ct?: string): string {
+  if (!ct) return baseUrl;
+  try {
+    const url = new URL(baseUrl);
+    url.searchParams.set("ct", sanitizeCt(ct));
+    return url.toString();
+  } catch {
+    return baseUrl;
+  }
+}
+
+/**
  * Build the App Store URL, overriding the default `ct` campaign token with the
  * incoming ad's utm_content (preferred) or utm_campaign. This is what makes
  * App Store Connect attribute installs back to the specific ad that drove the
  * tap — without it, every install shares one static token.
  *
+ * `pageCt` is the token for a page that is not an ad landing: "faq", or
+ * "blog-<slug>". It is applied FIRST and an incoming ad's UTM overrides it, so
+ * paid attribution always wins over the page default and organic traffic stops
+ * reporting as the landing-page button.
+ *
  * Falls back to the static `baseUrl` (with its built-in default `ct`) when no
- * UTMs are present or when running on the server.
+ * UTMs and no `pageCt` are present.
  */
-export function buildAppStoreUrl(baseUrl: string): string {
-  if (typeof window === "undefined") return baseUrl;
-  try {
-    const url = new URL(baseUrl);
-    const utm = getUtmParams();
-    const ct = utm.content || utm.campaign;
-    if (ct) url.searchParams.set("ct", sanitizeCt(ct));
-    return url.toString();
-  } catch {
-    return baseUrl;
-  }
+export function buildAppStoreUrl(baseUrl: string, pageCt?: string): string {
+  const withPageToken = withCampaignToken(baseUrl, pageCt);
+  if (typeof window === "undefined") return withPageToken;
+  const utm = getUtmParams();
+  const ct = utm.content || utm.campaign;
+  return ct ? withCampaignToken(withPageToken, ct) : withPageToken;
 }
 
 // ---- Event tracking --------------------------------------------------------

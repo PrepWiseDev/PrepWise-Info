@@ -116,6 +116,11 @@ run_all_checks() {
   expect_200 "www /" "$WWW/"
   expect_200 "www /privacy" "$WWW/privacy"
   expect_200 "www /terms" "$WWW/terms"
+  # Added with the S3a FAQ + blog scaffold. A new route can build, pass the SEO
+  # gate, and still 404 live if the worker or the asset routing swallows it, so
+  # every crawlable top-level route is asserted here rather than assumed.
+  expect_200 "www /faq" "$WWW/faq"
+  expect_200 "www /blog" "$WWW/blog"
   expect_no_redirect "www AASA served directly" "$WWW/.well-known/apple-app-site-association"
 
   echo "== AASA content is intact on both hosts =="
