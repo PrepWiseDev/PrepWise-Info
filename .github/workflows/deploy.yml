@@ -12,7 +12,11 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # Must stay >= 22: wrangler 4.x refuses to run on anything older
+          # ("Wrangler requires at least Node.js v22.0.0"), and the wrangler
+          # version pin below is load-bearing for the apex redirect. Next 16
+          # needs >= 20.9, so 22 satisfies both. Keep landing/.nvmrc in step.
+          node-version: 22
 
       - name: Install & build
         working-directory: landing
