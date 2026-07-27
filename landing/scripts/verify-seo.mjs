@@ -172,6 +172,59 @@ function schemaTypes(html) {
   return { types, errors };
 }
 
+/**
+ * EVERY App Store URL on the page, from the markup AND from the JSON-LD.
+ *
+ * The distinction is the whole point. A page's App Store links are its anchors
+ * AND the `installUrl` / `downloadUrl` of its SoftwareApplication node, and the
+ * second set is exactly as real as the first: it is what a search engine reads
+ * to offer the download. Until 2026-07-27 the two carried different campaign
+ * tokens on five pages, because the app node was built once in the root layout
+ * with the sitewide default while the anchors carried the page's own token.
+ * Nothing errored, both links worked, and installs sourced from the schema
+ * landed in the generic bucket instead of the page that earned them.
+ *
+ * Scanned with one regex over the whole HTML rather than per-surface parsing:
+ * an App Store URL is unambiguous wherever it appears, and a check that
+ * enumerated only the surfaces we thought of is how the second copy went
+ * unnoticed in the first place.
+ *
+ * TWO escapings have to be undone first, and BOTH are load-bearing:
+ *   - `&amp;ct=` in an href attribute (HTML entity)
+ *   - `&ct=` in the RSC flight payload Next inlines as `self.__next_f.push`
+ *     (JS string escape)
+ * The second is why this is not a two-line function. A backslash terminates the
+ * URL match, so without unescaping, every page reports a phantom extra link
+ * truncated at `?pt=...` with NO ct at all — and the consistency check below
+ * would then fail every page on the site, correct ones included. Measured
+ * against the real export: 2 of the 7 App Store URLs on the home page are that
+ * shape.
+ */
+export function appStoreUrls(html) {
+  const normalized = html.replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) =>
+    String.fromCharCode(parseInt(hex, 16))
+  );
+  const out = [];
+  const re = /https?:\/\/apps\.apple\.com[^\s"'<>\\)]+/gi;
+  let m;
+  while ((m = re.exec(normalized)) !== null) out.push(decodeEntities(m[0]));
+  return out;
+}
+
+/** The `ct` campaign token on an App Store URL, or null if it has none. */
+export function campaignTokenOf(url) {
+  try {
+    return new URL(url).searchParams.get("ct");
+  } catch {
+    return null;
+  }
+}
+
+/** The distinct campaign tokens across every App Store URL on the page. */
+export function campaignTokensOn(html) {
+  return [...new Set(appStoreUrls(html).map(campaignTokenOf))];
+}
+
 function headingTexts(html) {
   const out = [];
   const re = /<h([1-6])\b[^>]*>([\s\S]*?)<\/h\1>/gi;
@@ -380,6 +433,30 @@ export function checkPage({ rel, html, type, siteUrl }) {
     }
   }
 
+  // ONE PAGE, ONE CAMPAIGN TOKEN.
+  //
+  // `ct` is the join key into App Store Connect, so a page emitting two of them
+  // splits its own installs across two rows. This is the EXHAUSTIVE form of the
+  // per-page token check: the use-case check below asserts the expected token
+  // REACHED the page, which a single correct anchor satisfies and which
+  // therefore cannot see a second App Store URL carrying a different one. That
+  // is precisely the shape that shipped — three correct anchors beside a
+  // JSON-LD installUrl advertising the sitewide default.
+  //
+  // It needs no registry and no expected value, so it covers the pages whose
+  // token is a literal in the page source (/faq) and the ones that legitimately
+  // use the default (/ and /blog) as well as the ones with a registry entry.
+  const tokens = campaignTokensOn(html);
+  if (tokens.length > 1) {
+    const urls = appStoreUrls(html);
+    findings.push(err(
+      "appstore-ct-inconsistent",
+      `page emits ${urls.length} App Store link(s) carrying ${tokens.length} different campaign tokens ` +
+      `(${tokens.map((t) => (t === null ? "(no ct)" : `"${t}"`)).join(", ")}); ` +
+      "installs from this page would split across that many App Store Connect rows"
+    ));
+  }
+
   // -- WRONG DOMAIN
   if (FORBIDDEN_DOMAIN.test(html)) {
     findings.push(err(
@@ -467,10 +544,11 @@ export function checkBlogRegistry(outDir, landingRoot = LANDING_ROOT) {
       });
     }
 
-    const built =
-      fs.existsSync(path.join(outDir, "blog", `${slug}.html`)) ||
-      fs.existsSync(path.join(outDir, "blog", slug, "index.html"));
-    if (!built) {
+    const builtPath = [
+      path.join(outDir, "blog", `${slug}.html`),
+      path.join(outDir, "blog", slug, "index.html"),
+    ].find((p) => fs.existsSync(p));
+    if (!builtPath) {
       findings.push({
         ...err(
           "blog-post-not-built",
@@ -478,7 +556,18 @@ export function checkBlogRegistry(outDir, landingRoot = LANDING_ROOT) {
         ),
         page,
       });
+      continue;
     }
+
+    // Same exhaustive rule the use-case pages get: every App Store URL on the
+    // post, markup and JSON-LD alike, carries the post's own token.
+    findings.push(...checkRenderedCampaignToken({
+      html: fs.readFileSync(builtPath, "utf8"),
+      expectedCt: ct,
+      kind: "blog",
+      label: `/blog/${slug}`,
+      page: `blog/${slug}.html`,
+    }));
   }
 
   return findings;
@@ -501,14 +590,53 @@ export function listUseCaseSlugs(landingRoot = LANDING_ROOT) {
     .filter(Boolean);
 }
 
-/** Every App Store href on the page, with entities decoded. */
-function appStoreHrefs(html) {
-  const out = [];
-  for (const tag of tagsOf(html, "a")) {
-    const href = attrs(tag).href || "";
-    if (/apps\.apple\.com/i.test(href)) out.push(href);
+/**
+ * Assert EVERY App Store URL on a built page carries `expectedCt`.
+ *
+ * Two findings, not one, because they are two different problems:
+ *   - nothing carries it  -> the token never reached the page at all
+ *   - something else does -> the page emits two tokens for the same action
+ *
+ * The second is the one a presence check cannot see. Skipped when the token is
+ * over App Store Connect's 40-character ceiling: `sanitizeCt()` truncates
+ * SILENTLY, so the rendered token legitimately differs from the declared one
+ * and the *-ct-too-long finding already names the real problem.
+ *
+ * @param kind "usecase" | "blog", used as the finding-code prefix.
+ */
+function checkRenderedCampaignToken({ html, expectedCt, kind, label, page }) {
+  if (expectedCt.length > 40) return [];
+
+  const findings = [];
+  const urls = appStoreUrls(html);
+  const carrying = urls.filter((u) => campaignTokenOf(u) === expectedCt);
+  const wrong = urls.filter((u) => campaignTokenOf(u) !== expectedCt);
+
+  if (carrying.length === 0) {
+    findings.push({
+      ...err(
+        `${kind}-ct-not-rendered`,
+        `no App Store link on ${label} carries ct=${expectedCt} (found ${urls.length} link(s)); ` +
+        "organic installs from this page would report under the sitewide default token"
+      ),
+      page,
+    });
   }
-  return out;
+  if (wrong.length) {
+    const seen = [...new Set(wrong.map(campaignTokenOf))]
+      .map((t) => (t === null ? "(no ct)" : `"${t}"`))
+      .join(", ");
+    findings.push({
+      ...err(
+        `${kind}-ct-mismatch`,
+        `${wrong.length} of ${urls.length} App Store link(s) on ${label} carry ${seen} instead of ` +
+        `"${expectedCt}". Both links work and nothing errors, so this is invisible: check the ` +
+        "JSON-LD installUrl/downloadUrl, which is a real App Store link a crawler will offer"
+      ),
+      page,
+    });
+  }
+  return findings;
 }
 
 /**
@@ -619,19 +747,13 @@ export function checkUseCasePages(outDir, landingRoot = LANDING_ROOT) {
       continue;
     }
 
-    const html = fs.readFileSync(builtPath, "utf8");
-    const hrefs = appStoreHrefs(html);
-    const carrying = hrefs.filter((h) => new URL(h).searchParams.get("ct") === ct);
-    if (carrying.length === 0) {
-      findings.push({
-        ...err(
-          "usecase-ct-not-rendered",
-          `no App Store link on /${slug} carries ct=${ct} (found ${hrefs.length} link(s)); ` +
-          "organic installs from this page would report under the sitewide default token"
-        ),
-        page: `${slug}.html`,
-      });
-    }
+    findings.push(...checkRenderedCampaignToken({
+      html: fs.readFileSync(builtPath, "utf8"),
+      expectedCt: ct,
+      kind: "usecase",
+      label: `/${slug}`,
+      page: `${slug}.html`,
+    }));
   }
 
   return findings;
@@ -875,6 +997,9 @@ function selfTest() {
     checkPage({ rel: "index.html", html, type, siteUrl: SITE });
   const codes = (html, type) => run1(html, type).filter((f) => f.level === "error").map((f) => f.code);
 
+  const APP_LINK = (ct) =>
+    `<a href="https://apps.apple.com/app/apple-store/id6754949361?pt=128248695&amp;ct=${ct}&amp;mt=8">Download</a>`;
+
   // --- the fixture that MUST pass
   check("a compliant page produces no errors", () => {
     const found = codes(goodPage());
@@ -1065,6 +1190,11 @@ function selfTest() {
       path.join(root, "content", "blog", file),
       `export const post = { slug: "${slug}", title: "t" };\n`
     );
+  const writeBuiltPost = (root, slug) =>
+    fs.writeFileSync(
+      path.join(root, "out", "blog", `${slug}.html`),
+      `<html><body>${APP_LINK(`blog-${slug}`)}</body></html>`
+    );
   const writeIndex = (root, files) =>
     fs.writeFileSync(
       path.join(root, "content", "blog", "index.ts"),
@@ -1078,7 +1208,7 @@ function selfTest() {
     withTempBlog((root) => {
       writePost(root, "a-post.ts", "a-post");
       writeIndex(root, ["a-post"]);
-      fs.writeFileSync(path.join(root, "out", "blog", "a-post.html"), "<html></html>");
+      writeBuiltPost(root, "a-post");
       const found = registryCodes(root);
       assert(found.length === 0, `expected none, got ${JSON.stringify(found)}`);
     });
@@ -1088,7 +1218,7 @@ function selfTest() {
       writePost(root, "a-post.ts", "a-post");
       writePost(root, "orphan.ts", "orphan");
       writeIndex(root, ["a-post"]);
-      fs.writeFileSync(path.join(root, "out", "blog", "a-post.html"), "<html></html>");
+      writeBuiltPost(root, "a-post");
       assert(registryCodes(root).includes("blog-post-unregistered"), "expected blog-post-unregistered");
     });
   });
@@ -1113,7 +1243,10 @@ function selfTest() {
       writePost(root, "a-post.ts", "a-post");
       writeIndex(root, ["a-post"]);
       fs.mkdirSync(path.join(root, "out", "blog", "a-post"), { recursive: true });
-      fs.writeFileSync(path.join(root, "out", "blog", "a-post", "index.html"), "<html></html>");
+      fs.writeFileSync(
+        path.join(root, "out", "blog", "a-post", "index.html"),
+        `<html><body>${APP_LINK("blog-a-post")}</body></html>`
+      );
       assert(registryCodes(root).length === 0, "nested index.html should count");
     });
   });
@@ -1159,8 +1292,6 @@ function selfTest() {
     assert(codes(noCta, "use-case").includes("appstore-cta"), "expected appstore-cta");
   });
 
-  const APP_LINK = (ct) =>
-    `<a href="https://apps.apple.com/app/apple-store/id6754949361?pt=128248695&amp;ct=${ct}&amp;mt=8">Download</a>`;
   const withTempPages = (fn) => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "verify-seo-uc-"));
     try {
@@ -1222,6 +1353,99 @@ function selfTest() {
       assert(ucCodes(root).includes("usecase-ct-not-rendered"), "expected usecase-ct-not-rendered");
     });
   });
+  // THE shape this check was extended for. The page renders three correct
+  // anchors AND one App Store URL carrying the sitewide default (the JSON-LD
+  // installUrl/downloadUrl the root layout used to build). The presence check
+  // above is satisfied by the three good anchors and reports nothing at all.
+  check("a wrong-token sibling beside correct anchors is caught", () => {
+    withTempPages((root) => {
+      writeUseCase(root, "a-page.ts", "a-page", "lp_a_page");
+      writePagesIndex(root, ["a-page"]);
+      fs.writeFileSync(
+        path.join(root, "out", "a-page.html"),
+        "<html><body>" +
+          APP_LINK("lp_a_page") + APP_LINK("lp_a_page") + APP_LINK("lp_a_page") +
+          '<script type="application/ld+json">' +
+          JSON.stringify({
+            "@graph": [{
+              "@type": "MobileApplication",
+              installUrl: "https://apps.apple.com/app/apple-store/id6754949361?pt=128248695&ct=Landing%20Page%20Download%20Button&mt=8",
+              downloadUrl: "https://apps.apple.com/app/apple-store/id6754949361?pt=128248695&ct=Landing%20Page%20Download%20Button&mt=8",
+            }],
+          }) +
+          "</script></body></html>"
+      );
+      const found = ucCodes(root);
+      assert(found.includes("usecase-ct-mismatch"), `expected usecase-ct-mismatch, got ${JSON.stringify(found)}`);
+      // The presence check must stay quiet: proving it alone could not have
+      // caught this is the reason the exhaustive form exists.
+      assert(!found.includes("usecase-ct-not-rendered"),
+        "the presence check is satisfied here — that is the point of this case");
+    });
+  });
+  check("the same page with the right token everywhere passes", () => {
+    withTempPages((root) => {
+      writeUseCase(root, "a-page.ts", "a-page", "lp_a_page");
+      writePagesIndex(root, ["a-page"]);
+      fs.writeFileSync(
+        path.join(root, "out", "a-page.html"),
+        "<html><body>" + APP_LINK("lp_a_page") +
+          '<script type="application/ld+json">' +
+          JSON.stringify({
+            "@graph": [{
+              "@type": "MobileApplication",
+              installUrl: "https://apps.apple.com/app/apple-store/id6754949361?pt=128248695&ct=lp_a_page&mt=8",
+              downloadUrl: "https://apps.apple.com/app/apple-store/id6754949361?pt=128248695&ct=lp_a_page&mt=8",
+            }],
+          }) +
+          "</script></body></html>"
+      );
+      const found = ucCodes(root);
+      assert(found.length === 0, `expected none, got ${JSON.stringify(found)}`);
+    });
+  });
+  check("App Store URLs are found in JSON-LD as well as in href attributes", () => {
+    // The href carries `&amp;`, the JSON-LD carries a bare `&`. Both must decode
+    // to the same token or the check reports a difference that is not real.
+    const html =
+      APP_LINK("lp_x") +
+      '<script type="application/ld+json">{"installUrl":' +
+      '"https://apps.apple.com/app/apple-store/id6754949361?pt=128248695&ct=lp_x&mt=8"}</script>';
+    const urls = appStoreUrls(html);
+    assert(urls.length === 2, `expected 2 urls, got ${urls.length}: ${JSON.stringify(urls)}`);
+    assert(campaignTokensOn(html).length === 1,
+      `expected one token, got ${JSON.stringify(campaignTokensOn(html))}`);
+    assert(campaignTokenOf(urls[0]) === "lp_x", campaignTokenOf(urls[0]));
+  });
+  check("two campaign tokens on one page is a page-level failure", () => {
+    const mixed = goodPage({
+      body: APP_LINK("faq") +
+        '<script type="application/ld+json">{"downloadUrl":' +
+        '"https://apps.apple.com/app/apple-store/id6754949361?ct=Landing%20Page%20Download%20Button"}</script>',
+    });
+    assert(codes(mixed, "faq").includes("appstore-ct-inconsistent"),
+      `expected appstore-ct-inconsistent, got ${JSON.stringify(codes(mixed, "faq"))}`);
+    // A page whose links all agree must NOT trip it, whatever the token is.
+    const one = goodPage({ body: APP_LINK("faq") + APP_LINK("faq") });
+    assert(!codes(one, "faq").includes("appstore-ct-inconsistent"), "false positive on a consistent page");
+    const bare = goodPage({ body: '<a href="https://apps.apple.com/app/apple-store/id6754949361">D</a>' });
+    assert(!codes(bare).includes("appstore-ct-inconsistent"), "false positive on a single untokened link");
+  });
+  check("a blog post whose JSON-LD carries the wrong token is caught", () => {
+    withTempBlog((root) => {
+      writePost(root, "a-post.ts", "a-post");
+      writeIndex(root, ["a-post"]);
+      fs.writeFileSync(
+        path.join(root, "out", "blog", "a-post.html"),
+        "<html><body>" + APP_LINK("blog-a-post") +
+          '<script type="application/ld+json">{"installUrl":' +
+          '"https://apps.apple.com/app/apple-store/id6754949361?ct=Landing%20Page%20Download%20Button"}</script>' +
+          "</body></html>"
+      );
+      assert(registryCodes(root).includes("blog-ct-mismatch"), "expected blog-ct-mismatch");
+    });
+  });
+
   check("a malformed or over-long campaign token is caught", () => {
     withTempPages((root) => {
       writeUseCase(root, "a.ts", "a", "LP_Shouty");
