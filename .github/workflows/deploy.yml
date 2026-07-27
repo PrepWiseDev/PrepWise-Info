@@ -26,12 +26,20 @@ jobs:
           NEXT_PUBLIC_META_PIXEL_ID: "1773365026987238"
           # GA4 Measurement ID is public (ships in client-side JS), so it's fine inline.
           NEXT_PUBLIC_GA_MEASUREMENT_ID: "G-GD15ZM4ZPM"
+        # `npm run build` is `next build && node scripts/verify-seo.mjs`. The
+        # on-page SEO gate is chained INSIDE the build script rather than added
+        # as a separate step on purpose: a separate step can be dropped by a
+        # future edit to this file and nothing would notice, because a page with
+        # a 39-character title deploys perfectly happily. Chaining it means the
+        # gate runs for every caller of `npm run build`, here and locally.
         run: |
           npm ci
           npm run build
 
-      - name: Run worker unit tests
-        run: node worker/apex-redirect.test.mjs
+      - name: Run unit tests
+        run: |
+          node worker/apex-redirect.test.mjs
+          node landing/scripts/verify-seo.mjs --self-test
 
       - name: Deploy to Cloudflare
         uses: cloudflare/wrangler-action@v3

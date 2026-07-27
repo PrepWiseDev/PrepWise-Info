@@ -2,20 +2,34 @@ import type { Metadata } from "next";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import LegalLayout from "@/components/LegalLayout";
+import { OG_IMAGE } from "@/lib/constants";
+
+const TITLE = "Privacy Policy | How PrepWise Collects and Protects Data";
+const DESCRIPTION =
+  "How the PrepWise meal planning app collects, uses, stores, and protects your data, which sub-processors handle it, and the choices you have over all of it.";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy – PrepWise",
-  description:
-    "PrepWise Privacy Policy. Learn how we collect, use, and protect your data in the PrepWise meal planning app.",
+  title: TITLE,
+  description: DESCRIPTION,
   alternates: {
     canonical: "/privacy",
   },
+  // Next REPLACES the root layout's openGraph rather than merging into it, so
+  // the image and card have to be restated here. Omitting them is what left
+  // this page with no og:image until 2026-07-26.
   openGraph: {
-    title: "Privacy Policy – PrepWise",
-    description:
-      "How PrepWise collects, uses, and protects your data.",
+    title: TITLE,
+    description: "How PrepWise collects, uses, and protects your data.",
     type: "website",
     url: "/privacy",
+    siteName: "PrepWise",
+    images: [OG_IMAGE],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: TITLE,
+    description: "How PrepWise collects, uses, and protects your data.",
+    images: [OG_IMAGE],
   },
 };
 

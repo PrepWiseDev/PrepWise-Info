@@ -1,0 +1,688 @@
+#!/usr/bin/env node
+//
+// verify-seo.mjs — on-page SEO build gate for prepwise-app.com.
+//
+//   node scripts/verify-seo.mjs              # check landing/out/
+//   node scripts/verify-seo.mjs --dir <path> # check some other export
+//   node scripts/verify-seo.mjs --json       # machine-readable report
+//   node scripts/verify-seo.mjs --self-test  # fixtures that must pass / must fail
+//
+// Exit codes:
+//   0  every page passed
+//   1  at least one page failed a required check   -> the deploy must not run
+//   2  the check could not be performed at all (no out/, no HTML, unreadable
+//      SITE_URL). Deliberately NOT 0: "I could not tell" must never read as
+//      "clean". This is the same reason scripts/verify-live-routing.sh exists
+//      at all -- a green step that checked nothing is worse than a red one.
+//
+// WHY THIS EXISTS
+//
+// Every check below fails SILENTLY in production. A 40-character title, a
+// missing canonical, a JSON-LD block with a trailing comma, an <img> with no
+// alt: nothing errors, nothing 500s, the deploy is green, and the page just
+// quietly underperforms for months. The only way to notice is to look, and
+// nobody looks at every page on every deploy. So the build looks instead.
+//
+// The checklist this enforces is landing/seo/on-page-checklist.md. Items marked
+// [GATE] there are the ones implemented here. Anything needing judgement stays
+// a human check and is deliberately NOT approximated by a regex.
+
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const LANDING_ROOT = path.resolve(HERE, "..");
+
+// --- the bar ----------------------------------------------------------------
+
+const TITLE_MIN = 50;
+const TITLE_MAX = 60;
+const DESC_MIN = 150;
+const DESC_MAX = 160;
+
+// prepwise.app belongs to an unrelated exam-prep company. Until 2026-07-26 the
+// deployed robots.txt pointed crawlers at their sitemap. It must never appear
+// in a canonical, a link, or body copy again. See CLAUDE.md -> "Domain and
+// canonical host".
+//
+// The dot is escaped and \b terminates the match, so this does NOT fire on our
+// own www.prepwise-app.com (hyphen, not dot) or on the word "application".
+// A self-test case pins exactly that, because an over-eager version of this
+// rule would fail every page on the site and get deleted rather than fixed.
+const FORBIDDEN_DOMAIN = /prepwise\.app\b/i;
+
+// Pages that are not indexable and have no keyword to rank for. Checking a 404
+// against a 50-60 char title bar produces a failure nobody can act on.
+const EXEMPT = /(^|\/)(404|_not-found)(\.html|\/index\.html)$/;
+
+// schema.org subtypes we accept for each requirement. MobileApplication is a
+// subclass of SoftwareApplication; either satisfies the app requirement.
+const SCHEMA_ALIASES = {
+  App: ["SoftwareApplication", "MobileApplication", "WebApplication"],
+  Article: ["Article", "BlogPosting", "NewsArticle", "TechArticle"],
+  Organization: ["Organization", "Corporation", "LocalBusiness"],
+  WebSite: ["WebSite"],
+  BreadcrumbList: ["BreadcrumbList"],
+  FAQPage: ["FAQPage"],
+};
+
+// --- tiny HTML helpers ------------------------------------------------------
+// Regex, not a parser, on purpose: this runs on every build and must not add a
+// dependency to the deploy path. Everything it reads (meta tags, <title>,
+// <link>, script blocks) is emitted by Next in a predictable shape.
+
+const NAMED_ENTITIES = {
+  amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ",
+  ndash: "–", mdash: "—", hellip: "…", rsquo: "’",
+  lsquo: "‘", ldquo: "“", rdquo: "”", middot: "·",
+};
+
+/**
+ * Decode HTML entities before measuring anything.
+ *
+ * This is load-bearing, not cosmetic: `&amp;` is FIVE characters in the source
+ * and ONE character to Google. Measuring the raw HTML would report the site's
+ * own title as 43 characters when it is 39, and every "&" in a title would
+ * silently buy four characters of slack against the 60-char ceiling.
+ */
+export function decodeEntities(s) {
+  if (!s) return "";
+  return s
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(parseInt(d, 10)))
+    .replace(/&([a-z]+);/gi, (m, name) => NAMED_ENTITIES[name.toLowerCase()] ?? m);
+}
+
+function attrs(tag) {
+  const out = {};
+  const re = /([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*("([^"]*)"|'([^']*)'|([^\s"'>]+))/g;
+  let m;
+  while ((m = re.exec(tag)) !== null) {
+    out[m[1].toLowerCase()] = decodeEntities(m[3] ?? m[4] ?? m[5] ?? "");
+  }
+  return out;
+}
+
+function tagsOf(html, name) {
+  return html.match(new RegExp(`<${name}\\b[^>]*>`, "gi")) || [];
+}
+
+/** name/property -> content, for every <meta> on the page. */
+function metaMap(html) {
+  const out = {};
+  for (const tag of tagsOf(html, "meta")) {
+    const a = attrs(tag);
+    // React renders `charSet` literally; attribute names are case-insensitive
+    // in HTML and `attrs()` lowercases them, so this catches both spellings.
+    if ("charset" in a) out.charset = a.charset;
+    const key = (a.name || a.property || "").toLowerCase();
+    if (key) out[key] = a.content ?? "";
+  }
+  return out;
+}
+
+function jsonLdBlocks(html) {
+  const re = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+  const out = [];
+  let m;
+  while ((m = re.exec(html)) !== null) out.push(m[1]);
+  return out;
+}
+
+/** Every @type on the page, flattened out of @graph and arrays. */
+function schemaTypes(html) {
+  const types = [];
+  const errors = [];
+  for (const raw of jsonLdBlocks(html)) {
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (err) {
+      errors.push(err.message);
+      continue;
+    }
+    const walk = (node) => {
+      if (Array.isArray(node)) return node.forEach(walk);
+      if (!node || typeof node !== "object") return;
+      const t = node["@type"];
+      if (typeof t === "string") types.push(t);
+      else if (Array.isArray(t)) types.push(...t.filter((x) => typeof x === "string"));
+      if (Array.isArray(node["@graph"])) node["@graph"].forEach(walk);
+      // mainEntity carries the FAQ questions; itemListElement the breadcrumbs.
+      for (const key of ["mainEntity", "itemListElement", "hasPart"]) {
+        if (node[key]) walk(node[key]);
+      }
+    };
+    walk(parsed);
+  }
+  return { types, errors };
+}
+
+function headingTexts(html) {
+  const out = [];
+  const re = /<h([1-6])\b[^>]*>([\s\S]*?)<\/h\1>/gi;
+  let m;
+  while ((m = re.exec(html)) !== null) {
+    out.push(decodeEntities(m[2].replace(/<[^>]*>/g, " ")).replace(/\s+/g, " ").trim());
+  }
+  return out;
+}
+
+/**
+ * A 1x1 hidden analytics beacon (the Meta Pixel `<noscript>` fallback). It is
+ * the textbook decorative image, and warning about it on every single build
+ * would train everyone to ignore this tool's output.
+ */
+function isTrackingPixel(a) {
+  return a.width === "1" && a.height === "1";
+}
+
+/** True when the page visibly renders an FAQ section. */
+export function hasFaqSection(html) {
+  return headingTexts(html).some((t) =>
+    /^faqs?$/i.test(t) || /frequently asked questions/i.test(t)
+  );
+}
+
+// --- page classification ----------------------------------------------------
+
+/**
+ * @param {string} rel path relative to the export root, POSIX separators.
+ * @returns {"exempt"|"home"|"article"|"legal"|"page"}
+ */
+export function classifyPage(rel) {
+  const p = rel.replace(/^\.?\//, "");
+  if (EXEMPT.test("/" + p)) return "exempt";
+  if (/^blog\//.test(p)) return "article";
+  if (/^(privacy|terms)(\.html|\/index\.html)$/.test(p)) return "legal";
+  if (p === "index.html") return "home";
+  return "page";
+}
+
+// --- the checks -------------------------------------------------------------
+
+const err = (code, message) => ({ level: "error", code, message });
+const warn = (code, message) => ({ level: "warn", code, message });
+
+/**
+ * @returns {Array<{level:"error"|"warn", code:string, message:string}>}
+ */
+export function checkPage({ rel, html, type, siteUrl }) {
+  const findings = [];
+  if (type === "exempt") return findings;
+
+  const meta = metaMap(html);
+
+  // -- HEAD / METADATA
+  const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  if (!titleMatch) {
+    findings.push(err("title-missing", "no <title> tag"));
+  } else {
+    const title = decodeEntities(titleMatch[1]).trim();
+    if (title.length < TITLE_MIN || title.length > TITLE_MAX) {
+      findings.push(err(
+        "title-length",
+        `title is ${title.length} chars, need ${TITLE_MIN}-${TITLE_MAX}: "${title}"`
+      ));
+    }
+  }
+
+  const desc = (meta["description"] || "").trim();
+  if (!desc) {
+    findings.push(err("description-missing", "no meta description"));
+  } else if (desc.length < DESC_MIN || desc.length > DESC_MAX) {
+    findings.push(err(
+      "description-length",
+      `meta description is ${desc.length} chars, need ${DESC_MIN}-${DESC_MAX}`
+    ));
+  }
+
+  const canonicals = tagsOf(html, "link")
+    .map(attrs)
+    .filter((a) => (a.rel || "").toLowerCase() === "canonical")
+    .map((a) => a.href || "");
+  if (canonicals.length === 0) {
+    findings.push(err("canonical-missing", "no <link rel=canonical>"));
+  } else if (canonicals.length > 1) {
+    findings.push(err("canonical-duplicate", `${canonicals.length} canonical links`));
+  } else if (!canonicals[0].startsWith(siteUrl)) {
+    findings.push(err(
+      "canonical-host",
+      `canonical "${canonicals[0]}" is not on ${siteUrl}`
+    ));
+  }
+
+  for (const [key, code] of [
+    ["og:title", "og-title"],
+    ["og:description", "og-description"],
+    ["og:image", "og-image"],
+    ["og:url", "og-url"],
+    ["og:type", "og-type"],
+    ["twitter:card", "twitter-card"],
+  ]) {
+    if (!meta[key]) findings.push(err(code, `missing ${key}`));
+  }
+  if (meta["twitter:card"] && meta["twitter:card"] !== "summary_large_image") {
+    findings.push(err(
+      "twitter-card-type",
+      `twitter:card is "${meta["twitter:card"]}", expected summary_large_image`
+    ));
+  }
+
+  if (!/<html[^>]*\slang=/i.test(html)) findings.push(err("html-lang", "<html> has no lang attribute"));
+  if (!meta["viewport"]) findings.push(err("viewport", "no viewport meta tag"));
+  if (!("charset" in meta)) findings.push(err("charset", "no charset meta tag"));
+
+  // -- HEADINGS
+  const h1s = (html.match(/<h1\b[^>]*>/gi) || []).length;
+  if (h1s !== 1) findings.push(err("h1-count", `${h1s} <h1> tags, expected exactly 1`));
+
+  // -- IMAGES
+  let decorative = 0;
+  for (const tag of tagsOf(html, "img")) {
+    const a = attrs(tag);
+    if (!("alt" in a)) {
+      const src = a.src || "(no src)";
+      findings.push(err("img-alt", `<img> with no alt attribute: ${src}`));
+    } else if (a.alt.trim() === "" && !isTrackingPixel(a)) {
+      // alt="" is CORRECT for a purely decorative image, so this is a warning
+      // and not a failure. It is still reported, because "decorative" has to be
+      // a decision someone made rather than an alt attribute someone forgot.
+      decorative += 1;
+    }
+  }
+  if (decorative) {
+    findings.push(warn(
+      "img-alt-empty",
+      `${decorative} image(s) with alt="" (valid only if purely decorative)`
+    ));
+  }
+
+  // -- SCHEMA
+  const { types, errors } = schemaTypes(html);
+  for (const e of errors) findings.push(err("jsonld-parse", `JSON-LD does not parse: ${e}`));
+
+  const has = (group) => SCHEMA_ALIASES[group].some((t) => types.includes(t));
+  const required = ["Organization", "WebSite"];
+  if (type === "home") required.push("App");
+  if (type === "article") required.push("Article", "BreadcrumbList");
+  for (const group of required) {
+    if (!has(group)) {
+      findings.push(err(
+        "schema-missing",
+        `no ${SCHEMA_ALIASES[group].join("/")} in JSON-LD (required for ${type} pages)`
+      ));
+    }
+  }
+  if (hasFaqSection(html) && !has("FAQPage")) {
+    findings.push(err(
+      "schema-faq",
+      "page renders an FAQ section but has no FAQPage JSON-LD"
+    ));
+  }
+
+  // -- APP STORE CTA
+  // PrepWise has no phone number and no premises; the App Store click is the
+  // conversion event, which is why this replaces the source checklist's
+  // click-to-call / NAP items.
+  if (type === "home" || type === "article") {
+    if (!/apps\.apple\.com/i.test(html)) {
+      findings.push(err("appstore-cta", "no App Store link on the page"));
+    }
+  }
+
+  // -- WRONG DOMAIN
+  if (FORBIDDEN_DOMAIN.test(html)) {
+    findings.push(err(
+      "wrong-domain",
+      'page references "prepwise.app", which is NOT our domain (ours is prepwise-app.com)'
+    ));
+  }
+
+  return findings.map((f) => ({ ...f, page: rel }));
+}
+
+// --- runner -----------------------------------------------------------------
+
+function readSiteUrl() {
+  // One source of truth. If constants.ts moves or the export is renamed we want
+  // a loud exit-2, not a check silently graded against a stale literal.
+  const file = path.join(LANDING_ROOT, "src", "lib", "constants.ts");
+  const src = fs.readFileSync(file, "utf8");
+  const m = src.match(/export\s+const\s+SITE_URL\s*=\s*["']([^"']+)["']/);
+  if (!m) throw new Error(`could not read SITE_URL from ${file}`);
+  return m[1].replace(/\/+$/, "");
+}
+
+function htmlFiles(dir) {
+  const out = [];
+  const walk = (abs, rel) => {
+    for (const entry of fs.readdirSync(abs, { withFileTypes: true })) {
+      if (entry.name === "_next" || entry.name.startsWith(".")) continue;
+      const childAbs = path.join(abs, entry.name);
+      const childRel = rel ? `${rel}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) walk(childAbs, childRel);
+      else if (entry.name.endsWith(".html")) out.push(childRel);
+    }
+  };
+  walk(dir, "");
+  return out.sort();
+}
+
+function run(argv) {
+  const dirArg = argv.indexOf("--dir");
+  const outDir = dirArg !== -1 ? path.resolve(argv[dirArg + 1]) : path.join(LANDING_ROOT, "out");
+  const asJson = argv.includes("--json");
+
+  let siteUrl;
+  try {
+    siteUrl = readSiteUrl();
+  } catch (e) {
+    console.error(`verify-seo: ${e.message}`);
+    return 2;
+  }
+
+  if (!fs.existsSync(outDir)) {
+    console.error(`verify-seo: export directory not found: ${outDir}`);
+    console.error("verify-seo: run `npm run build` first.");
+    return 2;
+  }
+
+  const files = htmlFiles(outDir);
+  if (files.length === 0) {
+    // An empty corpus proves nothing. Reporting "0 violations" here would be a
+    // green light earned by checking nothing at all.
+    console.error(`verify-seo: no HTML files found in ${outDir}`);
+    return 2;
+  }
+
+  const findings = [];
+  const checked = [];
+  const seenTitle = new Map();
+  const seenDesc = new Map();
+
+  for (const rel of files) {
+    const type = classifyPage(rel);
+    const html = fs.readFileSync(path.join(outDir, rel), "utf8");
+    if (type === "exempt") continue;
+    checked.push({ rel, type });
+    findings.push(...checkPage({ rel, html, type, siteUrl }));
+
+    // Cross-page duplicates. Two pages sharing a title or description are two
+    // pages competing for the same query; Google picks one and the other
+    // page's work is wasted. Same failure the used-keywords register exists to
+    // prevent, caught here for the cases it slips past.
+    const record = (map, value) => {
+      if (!value) return;
+      if (!map.has(value)) map.set(value, []);
+      map.get(value).push(rel);
+    };
+    record(seenTitle, decodeEntities((html.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [, ""])[1]).trim());
+    record(seenDesc, (metaMap(html).description || "").trim());
+  }
+
+  for (const [label, map, code] of [
+    ["title", seenTitle, "title-duplicate"],
+    ["meta description", seenDesc, "description-duplicate"],
+  ]) {
+    for (const [value, pages] of map) {
+      if (pages.length > 1) {
+        findings.push({
+          level: "error",
+          code,
+          page: pages.join(", "),
+          message: `${pages.length} pages share the same ${label}: "${value.slice(0, 60)}..."`,
+        });
+      }
+    }
+  }
+
+  const errors = findings.filter((f) => f.level === "error");
+  const warnings = findings.filter((f) => f.level === "warn");
+
+  if (asJson) {
+    console.log(JSON.stringify({
+      ok: errors.length === 0,
+      outDir,
+      siteUrl,
+      pagesChecked: checked,
+      skipped: files.filter((f) => classifyPage(f) === "exempt"),
+      errors,
+      warnings,
+    }, null, 2));
+    return errors.length === 0 ? 0 : 1;
+  }
+
+  const byPage = new Map();
+  for (const f of findings) {
+    if (!byPage.has(f.page)) byPage.set(f.page, []);
+    byPage.get(f.page).push(f);
+  }
+  for (const [page, list] of byPage) {
+    console.log(`\n  ${page}`);
+    for (const f of list) {
+      console.log(`    ${f.level === "error" ? "FAIL" : "warn"}  [${f.code}] ${f.message}`);
+    }
+  }
+
+  const skipped = files.length - checked.length;
+  console.log(
+    `\nverify-seo: ${checked.length} page(s) checked` +
+    (skipped ? `, ${skipped} skipped (error pages)` : "") +
+    `, ${errors.length} error(s), ${warnings.length} warning(s)`
+  );
+
+  if (errors.length) {
+    console.error(
+      "\nverify-seo: FAILED. The deploy is blocked until these are fixed.\n" +
+      "Checklist and rationale: landing/seo/on-page-checklist.md"
+    );
+    return 1;
+  }
+  console.log("verify-seo: ok");
+  return 0;
+}
+
+// --- self-test --------------------------------------------------------------
+
+function selfTest() {
+  const SITE = "https://www.prepwise-app.com";
+  let passed = 0;
+  const failures = [];
+  const check = (name, fn) => {
+    try { fn(); passed += 1; } catch (e) { failures.push(`${name}: ${e.message}`); }
+  };
+  const assert = (cond, msg) => { if (!cond) throw new Error(msg); };
+
+  // A page that satisfies every required check. Every failing fixture below is
+  // this page with exactly ONE thing broken, so a test can only fail for the
+  // reason it names.
+  const GOOD_TITLE = "PrepWise: AI Meal Planner and Pantry Tracker for iPhone"; // 54
+  const GOOD_DESC =
+    "PrepWise plans your meals from the food already in your pantry, tracks " +
+    "macros for every recipe, and writes the shopping list. Free on iPhone."; // 140 -> padded below
+  const desc = (GOOD_DESC + " Try it today.").slice(0, 155);
+
+  const goodPage = (over = {}) => {
+    const o = {
+      title: GOOD_TITLE,
+      description: desc,
+      canonical: `${SITE}/`,
+      h1: "<h1>Meal planning that starts with your pantry</h1>",
+      img: '<img src="/a.png" alt="PrepWise pantry screen"/>',
+      jsonld: JSON.stringify({
+        "@context": "https://schema.org",
+        "@graph": [
+          { "@type": "Organization", name: "PrepWise" },
+          { "@type": "WebSite", name: "PrepWise" },
+          { "@type": "MobileApplication", name: "PrepWise" },
+        ],
+      }),
+      body: '<a href="https://apps.apple.com/app/apple-store/id6754949361">Download</a>',
+      extraHead: "",
+      ...over,
+    };
+    return `<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/>` +
+      `<meta name="viewport" content="width=device-width, initial-scale=1"/>` +
+      `<title>${o.title}</title>` +
+      `<meta name="description" content="${o.description}"/>` +
+      `<link rel="canonical" href="${o.canonical}"/>` +
+      `<meta property="og:title" content="${o.title}"/>` +
+      `<meta property="og:description" content="${o.description}"/>` +
+      `<meta property="og:image" content="${SITE}/og-image.png"/>` +
+      `<meta property="og:url" content="${o.canonical}"/>` +
+      `<meta property="og:type" content="website"/>` +
+      `<meta name="twitter:card" content="summary_large_image"/>` +
+      o.extraHead +
+      `<script type="application/ld+json">${o.jsonld}</script>` +
+      `</head><body>${o.h1}${o.img}${o.body}</body></html>`;
+  };
+
+  const run1 = (html, type = "home") =>
+    checkPage({ rel: "index.html", html, type, siteUrl: SITE });
+  const codes = (html, type) => run1(html, type).filter((f) => f.level === "error").map((f) => f.code);
+
+  // --- the fixture that MUST pass
+  check("a compliant page produces no errors", () => {
+    const found = codes(goodPage());
+    assert(found.length === 0, `expected none, got ${JSON.stringify(found)}`);
+  });
+
+  check("title in the fixture really is within 50-60", () => {
+    assert(GOOD_TITLE.length >= TITLE_MIN && GOOD_TITLE.length <= TITLE_MAX,
+      `fixture title is ${GOOD_TITLE.length} chars`);
+    assert(desc.length >= DESC_MIN && desc.length <= DESC_MAX,
+      `fixture description is ${desc.length} chars`);
+  });
+
+  // --- fixtures that MUST fail, one broken thing each
+  const mustFail = [
+    ["title-length", goodPage({ title: "PrepWise" })],
+    ["title-length", goodPage({ title: "P".repeat(61) })],
+    ["description-length", goodPage({ description: "Too short." })],
+    ["description-length", goodPage({ description: "x".repeat(161) })],
+    ["canonical-missing", goodPage({ canonical: null }).replace(/<link rel="canonical"[^>]*>/, "")],
+    ["canonical-host", goodPage({ canonical: "https://prepwise-app.com/" })],
+    ["h1-count", goodPage({ h1: "" })],
+    ["h1-count", goodPage({ h1: "<h1>One</h1><h1>Two</h1>" })],
+    ["img-alt", goodPage({ img: '<img src="/no-alt.png"/>' })],
+    ["jsonld-parse", goodPage({ jsonld: '{"@type": "Organization",}' })],
+    ["schema-missing", goodPage({ jsonld: JSON.stringify({ "@type": "Organization" }) })],
+    ["appstore-cta", goodPage({ body: "<p>no cta here</p>" })],
+    ["wrong-domain", goodPage({ body: '<a href="https://prepwise.app/">oops</a>' })],
+    ["og-image", goodPage().replace(/<meta property="og:image"[^>]*>/, "")],
+    ["twitter-card", goodPage().replace(/<meta name="twitter:card"[^>]*>/, "")],
+    ["html-lang", goodPage().replace('<html lang="en">', "<html>")],
+    ["viewport", goodPage().replace(/<meta name="viewport"[^>]*>/, "")],
+    ["charset", goodPage().replace(/<meta charSet="utf-8"\/>/, "")],
+  ];
+  for (const [code, html] of mustFail) {
+    check(`fixture fails with ${code}`, () => {
+      const found = codes(html);
+      assert(found.includes(code), `expected ${code}, got ${JSON.stringify(found)}`);
+    });
+  }
+
+  // --- the false-positive guard on the wrong-domain rule.
+  // An over-eager version of this rule fires on our OWN host and fails every
+  // page on the site, which gets the rule deleted instead of the bug fixed.
+  check("our own www.prepwise-app.com does not trip the wrong-domain rule", () => {
+    const html = goodPage({
+      body: `<a href="${SITE}/privacy">Privacy</a><a href="https://prepwise-app.com/r/x">share</a>` +
+            `<p>the PrepWise application is free</p>` +
+            `<a href="https://apps.apple.com/app/apple-store/id6754949361">Download</a>`,
+    });
+    assert(!codes(html).includes("wrong-domain"), "false positive on our own domain");
+  });
+
+  // --- entity decoding is measured, not the raw source
+  check("entities are decoded before the title is measured", () => {
+    const raw = "PrepWise: AI Meal Planner &amp; Pantry Tracker for iPhone"; // 57 raw, 53 decoded
+    assert(raw.length === 57, `raw is ${raw.length}`);
+    assert(decodeEntities(raw).length === 53, `decoded to ${decodeEntities(raw).length}`);
+    assert(!codes(goodPage({ title: raw })).includes("title-length"), "should be in range once decoded");
+  });
+
+  // --- FAQ schema is required only when an FAQ is actually rendered
+  check("an FAQ heading with no FAQPage schema fails", () => {
+    const html = goodPage({ h1: "<h1>Title</h1><h2>Frequently asked questions</h2>" });
+    assert(codes(html).includes("schema-faq"), "expected schema-faq");
+  });
+  check("no FAQ section means no FAQPage requirement", () => {
+    assert(!codes(goodPage()).includes("schema-faq"), "unexpected schema-faq");
+  });
+  check("FAQPage schema satisfies a rendered FAQ", () => {
+    const html = goodPage({
+      h1: "<h1>Title</h1><h2>FAQ</h2>",
+      jsonld: JSON.stringify({
+        "@graph": [
+          { "@type": "Organization" }, { "@type": "WebSite" },
+          { "@type": "MobileApplication" }, { "@type": "FAQPage" },
+        ],
+      }),
+    });
+    assert(!codes(html).includes("schema-faq"), "expected FAQPage to satisfy it");
+  });
+
+  // --- page classification
+  check("error pages are exempt, real pages are not", () => {
+    assert(classifyPage("404.html") === "exempt", "404.html");
+    assert(classifyPage("_not-found.html") === "exempt", "_not-found.html");
+    assert(classifyPage("index.html") === "home", "index.html");
+    assert(classifyPage("privacy.html") === "legal", "privacy.html");
+    assert(classifyPage("terms.html") === "legal", "terms.html");
+    assert(classifyPage("blog/how-to-meal-plan.html") === "article", "blog page");
+    assert(classifyPage("about.html") === "page", "about.html");
+  });
+  check("an exempt page is never checked", () => {
+    const found = checkPage({ rel: "404.html", html: "<html></html>", type: "exempt", siteUrl: SITE });
+    assert(found.length === 0, `expected none, got ${JSON.stringify(found)}`);
+  });
+
+  // --- article pages carry the extra schema requirement
+  check("a blog page without Article/BreadcrumbList fails", () => {
+    const found = codes(goodPage(), "article");
+    assert(found.filter((c) => c === "schema-missing").length === 2,
+      `expected 2 schema-missing, got ${JSON.stringify(found)}`);
+  });
+  check("a legal page needs no App schema and no App Store CTA", () => {
+    const html = goodPage({
+      jsonld: JSON.stringify({ "@graph": [{ "@type": "Organization" }, { "@type": "WebSite" }] }),
+      body: "<p>legal text</p>",
+    });
+    const found = codes(html, "legal");
+    assert(found.length === 0, `expected none, got ${JSON.stringify(found)}`);
+  });
+
+  // --- empty alt is a warning, not a failure
+  check('alt="" is a warning, not an error', () => {
+    const found = run1(goodPage({ img: '<img src="/deco.png" alt=""/>' }));
+    assert(found.every((f) => f.level === "warn"), "should not be an error");
+    assert(found.some((f) => f.code === "img-alt-empty"), "expected the warning");
+  });
+  check("a 1x1 tracking pixel is not reported at all", () => {
+    const html = goodPage({
+      img: '<img src="/a.png" alt="PrepWise pantry screen"/>' +
+           '<img height="1" width="1" style="display:none" alt="" src="https://www.facebook.com/tr?id=1"/>',
+    });
+    assert(run1(html).length === 0, `expected none, got ${JSON.stringify(run1(html))}`);
+  });
+
+  if (failures.length) {
+    console.error(`FAIL ${failures.length} of ${passed + failures.length} verify-seo self-tests`);
+    for (const f of failures) console.error(`  - ${f}`);
+    return 1;
+  }
+  console.log(`ok - ${passed} verify-seo self-test cases passed`);
+  return 0;
+}
+
+// --- entry ------------------------------------------------------------------
+
+// Only when executed directly. The named exports above exist so this file can
+// be imported by a future test without the import itself exiting the process.
+if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+  const argv = process.argv.slice(2);
+  process.exit(argv.includes("--self-test") ? selfTest() : run(argv));
+}

@@ -2,20 +2,33 @@ import type { Metadata } from "next";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import LegalLayout from "@/components/LegalLayout";
+import { OG_IMAGE } from "@/lib/constants";
+
+const TITLE = "Terms of Use | PrepWise App License and Service Rules";
+const DESCRIPTION =
+  "Terms of Use for PrepWise, the iPhone meal planner and pantry tracker: your licence to use the app, subscription rules, acceptable use, and liability limits.";
 
 export const metadata: Metadata = {
-  title: "Terms of Use – PrepWise",
-  description:
-    "PrepWise Terms of Use (EULA). Rules and conditions for using the PrepWise AI-powered meal planning app.",
+  title: TITLE,
+  description: DESCRIPTION,
   alternates: {
     canonical: "/terms",
   },
+  // See the note on the privacy page: a page-level openGraph REPLACES the root
+  // layout's, so the image and card are restated rather than inherited.
   openGraph: {
-    title: "Terms of Use – PrepWise",
-    description:
-      "Terms and conditions for using the PrepWise app.",
+    title: TITLE,
+    description: "Terms and conditions for using the PrepWise app.",
     type: "website",
     url: "/terms",
+    siteName: "PrepWise",
+    images: [OG_IMAGE],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: TITLE,
+    description: "Terms and conditions for using the PrepWise app.",
+    images: [OG_IMAGE],
   },
 };
 

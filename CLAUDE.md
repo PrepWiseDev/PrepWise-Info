@@ -195,6 +195,88 @@ live site is.
 - Never use em dashes (—) in user-facing copy — marketing text, headings, legal
   docs, meta descriptions. Use plain hyphens (-) or restructure the sentence.
 
+---
+
+## SEO content — read before writing ANY page
+
+Three things exist so that no PrepWise page can ship below the bar, regardless
+of who or what wrote it.
+
+### 1. `landing/references/` — the voice and fact layer
+
+Read these before writing any blog post, landing page, meta description, or
+App Store copy. They are what stop the output reading like every other
+AI-written page in the results.
+
+| File | What it is |
+|---|---|
+| `references/voice.md` | How PrepWise writes. Banned words, banned claims, the AI-tells to delete on sight. |
+| `references/stats.md` | **The only numbers you may publish.** Every row is VERIFIED with a source, or it is `TODO(trent: confirm)` and unusable. |
+| `references/opinions.md` | Founder takes. One per page, maximum, always backed by a number or a mechanism. |
+| `references/stories.md` | Real anecdotes. **Stubs today.** Never invent one. |
+| `references/author.md` | Trent's byline, bio, and `Person` schema. Never invent a credential. |
+| `references/used-keywords.md` | The register of claimed primary keywords. One primary, one page, ever. |
+
+**The hard rule: a number that is not in `stats.md` does not go on the page.**
+Not rounded, not "approximately", not "studies show". A `TODO(trent: confirm)`
+value is a gap to write around, not a suggestion.
+
+The banned-claim list in `voice.md` is the same list enforced in code for
+PrepWise ads and scripts (`~/command-system/content-lab/lib/brand-guardrail.js`),
+so search, social, and paid all say the same thing.
+
+### 2. `landing/seo/on-page-checklist.md` — the checklist
+
+Adapted for an app business from the `jonocatliff/SEO_brief` reference: the
+local-business items (NAP, phone, service area, `LocalBusiness` schema) are
+replaced by `SoftwareApplication` schema and App Store CTA rules. Everything
+structural is kept.
+
+### 3. `landing/scripts/verify-seo.mjs` — the build gate
+
+The mechanically checkable subset of that checklist, run against the static
+export. **It fails the build**, which means it blocks the deploy.
+
+```bash
+cd landing
+npm run build          # next build && verify-seo  (the gate is chained in here)
+npm run verify:seo     # check the existing out/ without rebuilding
+npm run test:seo       # the checker's own fixtures (must-pass and must-fail)
+node scripts/verify-seo.mjs --json
+```
+
+Exit codes: `0` clean, `1` violations, **`2` could not check at all** (no
+`out/`, no HTML, unreadable `SITE_URL`). 2 is deliberately not 0, for the same
+reason `verify-live-routing.sh` exists: a green step that checked nothing is
+worse than a red one.
+
+What it asserts per page: title 50-60 chars and meta description 150-160 (both
+measured DECODED, so `&amp;` counts as one character), exactly one `<h1>`, a
+single canonical on `www.prepwise-app.com`, the full Open Graph and Twitter card
+set, `lang`/`viewport`/`charset`, JSON-LD that parses with the right schema
+types for the page type, an `alt` attribute on every `<img>`, an App Store link
+on marketing pages, no `prepwise.app` reference, and no two pages sharing a
+title or description.
+
+`404.html` and `_not-found.html` are exempt: they are not indexable and have no
+keyword to rank for.
+
+**The gate is chained inside the `build` script, not added as a separate CI
+step.** A separate step can be deleted by a future edit to `deploy.yml` and
+nothing would notice, because a page with a 39-character title deploys
+perfectly happily.
+
+**Adding a page means:** claim its primary in `used-keywords.md` first, write it
+against the checklist, add it to `SITE_ROUTES` in `landing/src/lib/constants.ts`
+so the generated sitemap picks it up, and let the gate check it.
+
+**Page-level `openGraph` REPLACES the root layout's, it does not merge.** Any
+page that sets its own must restate `images` (import `OG_IMAGE` from
+`src/lib/constants.ts`) and `twitter`. Not doing so is why `/privacy` and
+`/terms` shipped with no `og:image` at all until 2026-07-26.
+
+---
+
 ## Deployment
 
 ### Cloudflare Pages Setup (one-time)
