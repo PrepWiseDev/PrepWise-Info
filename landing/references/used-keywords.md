@@ -74,6 +74,7 @@ That list is enforced page-by-page in
 | 12 | `high protein meal prep` | Blog post | `/blog/high-protein-meal-prep` | Google autocomplete 2026-07-26 | 2026-07-26 |
 | 13 | `how to reduce food waste at home` | Blog post | `/blog/how-to-reduce-food-waste-at-home` | Google autocomplete 2026-07-26 | 2026-07-26 |
 | 14 | `pantry meal planner` | Use case | `/pantry-meal-planner` | **Search Console impression data 2026-08-11** + SERP review | 2026-08-11 |
+| 15 | `mealime alternative` | Blog post | `/blog/mealime-alternative` | Google autocomplete 2026-10-14 (returns `mealime alternatives`, `mealime app alternative`, `apps like mealime`) + Trent D6 decision 2026-10-14 | 2026-10-14 |
 | 16 | `hellofresh alternative` | Blog post | `/blog/hellofresh-alternative` | Google autocomplete 2026-10-15 (returns `hellofresh alternatives`, `hellofresh alternatives reddit`) + topic-queue #1 (Apple Ads search term "Hello Fresh") | 2026-10-15 |
 
 **"SERP review" is not the same as keyword research.** It means the phrase was
