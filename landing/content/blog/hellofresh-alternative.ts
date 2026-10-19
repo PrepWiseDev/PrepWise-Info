@@ -1,4 +1,4 @@
-import type { BlogPost } from "@/lib/blog";
+import type { BlogPostDraft } from "@/lib/blog";
 import { OG_IMAGE } from "@/lib/constants";
 
 // Primary from Google autocomplete 2026-10-15 ("hellofresh alternative" returns
@@ -24,7 +24,7 @@ import { OG_IMAGE } from "@/lib/constants";
 // (home page and its FAQ). NO HelloFresh price, rating or customer count
 // appears: it prints promotions and percentages that change by the week.
 // PrepWise numbers come from references/stats.md.
-export const post: BlogPost = {
+export const post: BlogPostDraft = {
   slug: "hellofresh-alternative",
   title: "HelloFresh Alternative: Cook From Food You Already Own",
   h1: "A HelloFresh alternative for people who already own the groceries",
@@ -41,8 +41,6 @@ export const post: BlogPost = {
     "cheaper than hellofresh",
     "meal planner instead of meal kit",
   ],
-  publishedAt: "2026-10-15",
-  updatedAt: "2026-10-15",
   hero: {
     src: OG_IMAGE.url,
     alt: "PrepWise: a meal planner that starts from what is already in your kitchen",

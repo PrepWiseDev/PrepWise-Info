@@ -1,4 +1,4 @@
-import type { BlogPost } from "@/lib/blog";
+import type { BlogPostDraft } from "@/lib/blog";
 import { OG_IMAGE } from "@/lib/constants";
 
 // Primary from Google autocomplete 2026-10-14 ("mealime alternative" returns
@@ -21,7 +21,7 @@ import { OG_IMAGE } from "@/lib/constants";
 //
 // Fair to Mealime by construction: the post says what it did well, and that
 // the right move for some readers is to stay with its team's Meals Hub.
-export const post: BlogPost = {
+export const post: BlogPostDraft = {
   slug: "mealime-alternative",
   title: "Mealime Alternative: What to Do Before It Closes Oct 21",
   h1: "Mealime alternative: how to choose one before October 21",
@@ -37,8 +37,6 @@ export const post: BlogPost = {
     "mealime replacement",
     "mealime shutting down",
   ],
-  publishedAt: "2026-10-14",
-  updatedAt: "2026-10-14",
   hero: {
     src: OG_IMAGE.url,
     alt: "PrepWise: a meal planner that starts from what is already in your kitchen",

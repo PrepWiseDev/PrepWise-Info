@@ -380,6 +380,18 @@ Four rules that are load-bearing rather than stylistic:
    listed in `SITE_ROUTES`.** `/faq` and `/blog` are in `SITE_ROUTES`; the posts
    are not. A post's `updatedAt` is already a real content date shown on the
    page, so the sitemap and the byline cannot disagree.
+5. **A post's publish date is DERIVED, never typed (2026-10-19).** Drafts omit
+   `publishedAt`/`updatedAt` and export `BlogPostDraft`. `scripts/publish-date.mjs`
+   dates the post to the America/New_York day of the commit that first added the
+   file on the first-parent history of main, so page, JSON-LD, sitemap lastmod and
+   blog index order all carry the merge day. Why: PR #7/#8 shipped with the day
+   the draft was written (5 and 1 days early), which is a `datePublished` earlier
+   than the URL existed and a sitemap lastmod that walks backward. It needs
+   `fetch-depth: 0` in `deploy.yml` (the build THROWS on a shallow clone rather
+   than guess). `verify-seo` fails `blog-date-hardcoded` for a typed date on any
+   post outside the closed `LEGACY_DATED_SLUGS` list, and `blog-date-mismatch` if
+   the rendered date differs from git. Tests: `scripts/publish-date.test.mjs`.
+   Previews of a draft on a branch show the branch commit date; only main counts.
 4. **`content/blog/index.ts` is hand-maintained and therefore DRIFT-CHECKED.**
    `verify-seo.mjs` fails the build when a file in `content/blog/` is not
    imported there (`blog-post-unregistered` — otherwise the post compiles, the
