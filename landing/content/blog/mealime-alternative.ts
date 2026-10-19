@@ -23,12 +23,12 @@ import { OG_IMAGE } from "@/lib/constants";
 // the right move for some readers is to stay with its team's Meals Hub.
 export const post: BlogPostDraft = {
   slug: "mealime-alternative",
-  title: "Mealime Alternative: What to Do Before It Closes Oct 21",
-  h1: "Mealime alternative: how to choose one before October 21",
+  title: "Mealime Alternative: What to Do About the Oct 21 Closing",
+  h1: "Mealime alternative: how to choose one now that it is closing",
   description:
-    "Looking for a Mealime alternative? Mealime closes October 21, 2026. Here is what its own pages say, what to save first, and three ways to carry on cooking.",
+    "Looking for a Mealime alternative? Mealime said it would close on October 21, 2026. What its own pages say, what to save, and three ways to carry on cooking.",
   ogDescription:
-    "Mealime closes October 21, 2026. What its own pages say, what to save first, and three ways to carry on.",
+    "Mealime announced it would close on October 21, 2026. What its own pages say and three ways to carry on.",
   primaryKeyword: "mealime alternative",
   secondaryKeywords: [
     "mealime alternatives",
@@ -45,8 +45,8 @@ export const post: BlogPostDraft = {
   },
 
   intro: [
-    "If you are looking for a Mealime alternative, the date to work back from is October 21, 2026. That is when Mealime says it will be discontinued. Between now and then, save the recipes you rely on, decide what you actually used it for, and pick a replacement that does that job.",
-    "This page is written for the person who opened Mealime every Sunday and now has to choose something else. It says what Mealime's own pages state, what to do this week, and three ways to carry on, one of which is PrepWise and one of which is staying with Mealime's own team.",
+    "If you are looking for a Mealime alternative, the date that matters is October 21, 2026. That is when Mealime said it would be discontinued. If the app still opens for you, save the recipes you rely on. Either way, decide what you actually used it for and pick a replacement that does that job.",
+    "This page is written for the person who opened Mealime every Sunday and now has to choose something else. It says what Mealime's own pages state, what to save, and three ways to carry on, one of which is PrepWise and one of which is staying with Mealime's own team.",
   ],
 
   sections: [
@@ -54,17 +54,17 @@ export const post: BlogPostDraft = {
       id: "what-mealime-says",
       heading: "What Mealime says is happening",
       body: [
-        "Everything in this section comes from Mealime's own pages, read on October 14, 2026. Details can change, so check the source before you act.",
+        "Everything in this section comes from Mealime's own pages, read on October 14, 2026, a week before the announced shutdown. Details can change, so check the source before you act.",
         "Mealime's [closing notice](https://www.mealime.com/closing) says the app will be discontinued as of October 21, 2026, and the banner on the [Mealime home page](https://www.mealime.com) says the same. It says Mealime was acquired by Albertsons Companies in 2021, and that its recipes and meal-planning tools are moving to a product called Meals Hub, found inside Albertsons Companies grocery apps.",
         "On subscriptions, the notice says Pro subscribers will not be charged any further fees before the shutdown, and that Pro recipes and features become available to all Mealime users. On data, it says personal data is deleted when the app shuts down, and that dietary preferences and some settings have to be set up again inside Meals Hub.",
         "It also says Meals Hub is free, keeps the Mealime recipes, and can be used without an Albertsons store nearby. That is Mealime's description of its own successor, and it is a fair option for many people. More on that below.",
       ],
     },
     {
-      id: "before-october-21",
-      heading: "What to do before October 21",
+      id: "what-to-save",
+      heading: "What to save from Mealime",
       body: [
-        "Four small jobs, in this order. None of them take long, and all of them are easier now than on the 20th.",
+        "Four small jobs, in this order. They only work while the app still opens, so if you are reading this after October 21, 2026, skip to the next section and rebuild from memory.",
       ],
       list: {
         ordered: true,
@@ -118,7 +118,7 @@ export const post: BlogPostDraft = {
     {
       question: "Is Mealime shutting down?",
       answer:
-        "Yes. Mealime's own closing notice says the app will be discontinued as of October 21, 2026, with its recipes and meal-planning tools moving to Meals Hub inside Albertsons Companies grocery apps. This was checked on October 14, 2026.",
+        "Yes. Mealime's own closing notice says the app will be discontinued as of October 21, 2026, with its recipes and meal-planning tools moving to Meals Hub inside Albertsons Companies grocery apps. That is the closing date it gave, so after it has passed the app should be gone. This was checked on October 14, 2026.",
     },
     {
       question: "What is the best Mealime alternative?",
