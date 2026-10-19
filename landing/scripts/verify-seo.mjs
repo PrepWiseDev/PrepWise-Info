@@ -31,6 +31,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { publishedDateFor } from "./publish-date.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const LANDING_ROOT = path.resolve(HERE, "..");
@@ -555,6 +556,46 @@ function readSiteUrl() {
 }
 
 /**
+ * Posts that predate derived publish dates and keep a literal `publishedAt`.
+ * CLOSED list: a new post is never added here. Everything else must leave the
+ * date out and let scripts/publish-date.mjs derive it from the merge commit.
+ */
+export const LEGACY_DATED_SLUGS = new Set([
+  "how-to-meal-plan-from-your-pantry",
+  "what-can-i-make-with-what-i-have",
+  "how-to-meal-plan-for-the-week",
+  "meal-prep-for-beginners",
+  "how-to-meal-plan-on-a-budget",
+  "high-protein-meal-prep",
+  "how-to-reduce-food-waste-at-home",
+]);
+
+/**
+ * Wording that is true on the day it was written and wrong later: "this week",
+ * "tomorrow", "closes in 5 days". A post goes live days after it is drafted and
+ * is read for months, so each hit wants a human look: use an absolute date, or
+ * keep the phrase if it is a generic instruction ("do not try all eight this
+ * week") rather than a claim about the calendar. WARNS, never fails: most hits
+ * in a cooking guide are the harmless kind.
+ *
+ * Reads quoted strings only, so `//` comments (source dates, SERP notes) are
+ * not scanned.
+ */
+export const RELATIVE_TIME_RE =
+  /\b(today|tonight|tomorrow|yesterday|this (?:week|weekend|month|year|season)|next (?:week|month|year)|last (?:week|month|year)|right now|at the moment|currently|recently|lately|soon|in (?:\d+|a few|two|three|four|five) (?:days|weeks|months)|(?:closes|closing|ends|expires|due) (?:on )?(?:mon|tues|wednes|thurs|fri|satur|sun)day)\b/i;
+
+/** @returns {string[]} the matched phrases, one per line that has any. */
+export function findRelativeTimeWording(src) {
+  const hits = [];
+  for (const line of src.split("\n")) {
+    if (/^\s*\/\//.test(line)) continue;
+    const m = line.match(RELATIVE_TIME_RE);
+    if (m) hits.push(m[0]);
+  }
+  return hits;
+}
+
+/**
  * The blog registry drift check.
  *
  * `content/blog/index.ts` is a hand-maintained list of posts. A hand-maintained
@@ -570,7 +611,7 @@ function readSiteUrl() {
  *
  * @returns {Array} findings, empty when there is no blog at all.
  */
-export function checkBlogRegistry(outDir, landingRoot = LANDING_ROOT) {
+export function checkBlogRegistry(outDir, landingRoot = LANDING_ROOT, opts = {}) {
   const dir = path.join(landingRoot, "content", "blog");
   if (!fs.existsSync(dir)) return [];
 
@@ -607,6 +648,29 @@ export function checkBlogRegistry(outDir, landingRoot = LANDING_ROOT) {
     }
     const slug = slugMatch[1];
 
+    const relHits = findRelativeTimeWording(src);
+    if (relHits.length > 0) {
+      findings.push({
+        ...warn(
+          "blog-relative-time",
+          `content/blog/${file} has ${relHits.length} relative-time phrase(s) (${[...new Set(relHits.map((h) => h.toLowerCase()))].join(", ")}); check each still reads right on any day, or use an absolute date`
+        ),
+        page,
+      });
+    }
+
+    // A typed publish date is the day the draft was written, not the day it
+    // went live (PR #7/#8). Dates are derived from git; see publish-date.mjs.
+    if (!LEGACY_DATED_SLUGS.has(slug) && /\b(publishedAt|updatedAt)\s*:\s*["'`]/.test(src)) {
+      findings.push({
+        ...err(
+          "blog-date-hardcoded",
+          `content/blog/${file} hard-codes publishedAt/updatedAt; delete them, the publish date is derived from the merge commit`
+        ),
+        page,
+      });
+    }
+
     const ct = `blog-${slug}`;
     if (ct.length > 40) {
       findings.push({
@@ -631,6 +695,22 @@ export function checkBlogRegistry(outDir, landingRoot = LANDING_ROOT) {
         page,
       });
       continue;
+    }
+
+    // Derived posts: the rendered datePublished must be the merge day git says.
+    if (!LEGACY_DATED_SLUGS.has(slug) && opts.checkDates !== false) {
+      const built = fs.readFileSync(builtPath, "utf8");
+      const rendered = built.match(/"datePublished":"([^"]+)"/)?.[1];
+      const expected = publishedDateFor(path.join(dir, file));
+      if (rendered !== expected) {
+        findings.push({
+          ...err(
+            "blog-date-mismatch",
+            `post "${slug}" renders datePublished ${rendered} but its merge commit says ${expected}`
+          ),
+          page: `blog/${slug}.html`,
+        });
+      }
     }
 
     // Same exhaustive rule the use-case pages get: every App Store URL on the
@@ -1224,6 +1304,12 @@ function selfTest() {
     });
     assert(codes(html).includes("schema-faq"), "expected schema-faq");
   });
+  check("relative-time wording in a post is found, comments are not", () => {
+    assert(findRelativeTimeWording('"Mealime closes in 3 days."').length === 1, "in N days");
+    assert(findRelativeTimeWording('  "Do it tomorrow."').length === 1, "tomorrow");
+    assert(findRelativeTimeWording('// SERP read today').length === 0, "comment scanned");
+    assert(findRelativeTimeWording('"Read on October 14, 2026."').length === 0, "absolute date flagged");
+  });
   check("linksToFaqPage does not match /faq-something", () => {
     assert(linksToFaqPage('<a href="/faq">x</a>'), "site-relative");
     assert(linksToFaqPage('<a href="/faq#billing">x</a>'), "with fragment");
@@ -1325,7 +1411,30 @@ function selfTest() {
         `\nexport const POSTS = [${files.map((_, i) => `p${i}`).join(", ")}];\n`
     );
   const registryCodes = (root) =>
-    checkBlogRegistry(path.join(root, "out"), root).map((f) => f.code);
+    checkBlogRegistry(path.join(root, "out"), root, { checkDates: false }).map((f) => f.code);
+
+  check("a new post that hard-codes publishedAt is refused", () => {
+    withTempBlog((root) => {
+      fs.writeFileSync(
+        path.join(root, "content", "blog", "new-post.ts"),
+        `export const post = { slug: "new-post", publishedAt: "2026-10-14" };\n`
+      );
+      writeIndex(root, ["new-post"]);
+      writeBuiltPost(root, "new-post");
+      assert(registryCodes(root).includes("blog-date-hardcoded"), "expected blog-date-hardcoded");
+    });
+  });
+  check("a legacy post may keep its literal date", () => {
+    withTempBlog((root) => {
+      fs.writeFileSync(
+        path.join(root, "content", "blog", "meal-prep-for-beginners.ts"),
+        `export const post = { slug: "meal-prep-for-beginners", publishedAt: "2026-08-11" };\n`
+      );
+      writeIndex(root, ["meal-prep-for-beginners"]);
+      writeBuiltPost(root, "meal-prep-for-beginners");
+      assert(registryCodes(root).length === 0, "expected none");
+    });
+  });
 
   check("a registered, built post produces no registry findings", () => {
     withTempBlog((root) => {

@@ -1,4 +1,4 @@
-import type { BlogPost } from "@/lib/blog";
+import type { BlogPostDraft } from "@/lib/blog";
 import { post as howToMealPlanFromYourPantry } from "./how-to-meal-plan-from-your-pantry";
 import { post as whatCanIMakeWithWhatIHave } from "./what-can-i-make-with-what-i-have";
 import { post as howToMealPlanForTheWeek } from "./how-to-meal-plan-for-the-week";
@@ -17,7 +17,7 @@ import { post as hellofreshAlternative } from "./hellofresh-alternative";
 // file is not imported below, or if a registered post produced no HTML in the
 // export. Without that check a new post is a file nobody ever sees, and nothing
 // anywhere reports it.
-export const POSTS: readonly BlogPost[] = [
+export const POSTS: readonly BlogPostDraft[] = [
   howToMealPlanFromYourPantry,
   whatCanIMakeWithWhatIHave,
   howToMealPlanForTheWeek,

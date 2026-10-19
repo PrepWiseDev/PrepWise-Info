@@ -10,7 +10,9 @@
 // a drift check is fine; a hand-kept list on its own is a page that silently
 // never ships.
 
-import { POSTS } from "@content/blog";
+import path from "node:path";
+import { POSTS as DRAFTS } from "@content/blog";
+import { publishedDateFor } from "../../scripts/publish-date.mjs";
 
 export type BlogSection = {
   /** Stable anchor. Used by the table of contents and by in-body links. */
@@ -26,6 +28,18 @@ export type BlogFaq = {
   question: string;
   /** Plain text. Same invariant as the FAQ page: schema text === visible text. */
   answer: string;
+};
+
+/**
+ * What a post FILE exports. `publishedAt` is absent: it is derived from the
+ * commit that first added the file on main (scripts/publish-date.mjs), so a
+ * draft can never carry a date earlier than the day it goes live. `updatedAt`
+ * is only set when an existing post is materially edited.
+ * Legacy posts (see verify-seo.mjs) still declare both literally.
+ */
+export type BlogPostDraft = Omit<BlogPost, "publishedAt" | "updatedAt"> & {
+  publishedAt?: string;
+  updatedAt?: string;
 };
 
 export type BlogPost = {
@@ -54,6 +68,19 @@ export type BlogPost = {
    *  in-body links the checklist asks for, never instead of them. */
   internalLinks: { href: string; label: string; note: string }[];
 };
+
+function resolve(draft: BlogPostDraft): BlogPost {
+  const publishedAt =
+    draft.publishedAt ??
+    publishedDateFor(path.join(process.cwd(), "content", "blog", `${draft.slug}.ts`));
+  const updatedAt = draft.updatedAt ?? publishedAt;
+  if (updatedAt < publishedAt) {
+    throw new Error(`blog post "${draft.slug}": updatedAt ${updatedAt} is before publishedAt ${publishedAt}`);
+  }
+  return { ...draft, publishedAt, updatedAt };
+}
+
+const POSTS: readonly BlogPost[] = DRAFTS.map(resolve);
 
 /** Newest first. One place decides the order. */
 export function getAllPosts(): BlogPost[] {

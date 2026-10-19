@@ -9,6 +9,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history on purpose: blog publish dates are derived from the
+          # commit that first added each post (landing/scripts/publish-date.mjs).
+          # A shallow clone makes the build throw, never guess.
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -40,6 +45,7 @@ jobs:
         run: |
           node worker/apex-redirect.test.mjs
           node landing/scripts/verify-seo.mjs --self-test
+          node landing/scripts/publish-date.test.mjs
 
       - name: Deploy to Cloudflare
         uses: cloudflare/wrangler-action@v3
