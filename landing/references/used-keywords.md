@@ -76,6 +76,7 @@ That list is enforced page-by-page in
 | 14 | `pantry meal planner` | Use case | `/pantry-meal-planner` | **Search Console impression data 2026-08-11** + SERP review | 2026-08-11 |
 | 15 | `mealime alternative` | Blog post | `/blog/mealime-alternative` | Google autocomplete 2026-10-14 (returns `mealime alternatives`, `mealime app alternative`, `apps like mealime`) + Trent D6 decision 2026-10-14 | 2026-10-14 |
 | 16 | `hellofresh alternative` | Blog post | `/blog/hellofresh-alternative` | Google autocomplete 2026-10-15 (returns `hellofresh alternatives`, `hellofresh alternatives reddit`) + topic-queue #1 (Apple Ads search term "Hello Fresh") | 2026-10-15 |
+| 17 | `pantry staples list` | Blog post | `/blog/pantry-staples-list` | Google autocomplete 2026-11-01 (returns `pantry staples list`, `pantry staples list printable`, `pantry staples on a budget`) + topic-queue #2, cluster 10 | 2026-11-01 |
 
 **"SERP review" is not the same as keyword research.** It means the phrase was
 searched, the ranking pages were read, and the page was written to match their
@@ -431,6 +432,32 @@ be resolved in the same commit.*
 *Not chased: the "food pantry" (food-bank) sense of the query, which is live in
 this SERP and is what the Penn State result serves. Different searcher, and not
 one PrepWise should be answering.*
+
+---
+
+### 17. `pantry staples list` → /blog/pantry-staples-list
+
+- **Primary source:** Google autocomplete, 2026-11-01 (seed `pantry staples`
+  returned `pantry staples list` second; `pantry staples list` itself returned
+  `...printable`, `...for new home`). Cluster:
+  [`keyword-clusters.md`](./keyword-clusters.md) 10. Topic-queue entry 2.
+- **Search intent:** informational, list-shaped
+- **Page:** /blog/pantry-staples-list (status: drafted)
+- **Claimed:** 2026-11-01
+
+| Secondary keyword | Source |
+|---|---|
+| pantry staples to stock up on | ✓ cluster 10 (autocomplete 2026-07-26) |
+| pantry staples on a budget | ✓ autocomplete 2026-07-26 and 2026-11-01 |
+| pantry staples to have on hand | ✓ autocomplete 2026-11-01 |
+| pantry staples recipes | ✓ autocomplete |
+| pantry inventory | Apple Ads keyword (topic-queue) |
+
+*Cluster audit: all from autocomplete or the Apple Ads term list. `pantry
+staples list pdf` / `printable` were LEFT OUT: that searcher wants a download,
+which this post does not offer. `pantry staples for healthy eating` and
+`mediterranean diet` were left out (health framing, claim risk). The
+organising-a-pantry tail belongs to cluster 14 (`how to organize a pantry`).*
 
 ---
 

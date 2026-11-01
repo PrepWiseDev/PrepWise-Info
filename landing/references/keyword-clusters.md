@@ -86,7 +86,7 @@ Ranked by intent strength and by how directly they feed a use-case page. The
 | 7 | `how long does meal prep last in the fridge` | informational | direct answer + chart | `/meal-prep-app` | open |
 | 8 | `meal planning for two` | informational | how-to | `/meal-prep-app`, `/grocery-list-app` | open |
 | 9 | `how to meal plan for one person` | informational | how-to | `/meal-prep-app` | open |
-| 10 | `pantry staples list` | informational | listicle | `/pantry-tracker` | open |
+| 10 | `pantry staples list` | informational | listicle | `/pantry-tracker` | **CONSUMED** → `/blog/pantry-staples-list` |
 | 11 | `freezer meal prep` | informational | how-to | `/meal-prep-app` | open |
 | 12 | `how to meal plan for macros` | informational | how-to | `/macro-meal-planner` | open |
 | 13 | `what to do with leftovers` | informational | templates listicle | `/pantry-tracker` | open |
@@ -321,7 +321,7 @@ kept apart: this post links to that one rather than restating it.*
 
 ---
 
-### 10. `pantry staples list`
+### 10. `pantry staples list` — **CONSUMED** → `/blog/pantry-staples-list`
 
 - **Seed:** `pantry staples` → autocomplete, 2026-07-26
 - **Intent:** informational, list-shaped
