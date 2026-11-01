@@ -8,6 +8,7 @@ import { post as highProteinMealPrep } from "./high-protein-meal-prep";
 import { post as howToReduceFoodWasteAtHome } from "./how-to-reduce-food-waste-at-home";
 import { post as mealimeAlternative } from "./mealime-alternative";
 import { post as hellofreshAlternative } from "./hellofresh-alternative";
+import { post as pantryStaplesList } from "./pantry-staples-list";
 
 // The post registry.
 //
@@ -27,4 +28,5 @@ export const POSTS: readonly BlogPostDraft[] = [
   howToReduceFoodWasteAtHome,
   mealimeAlternative,
   hellofreshAlternative,
+  pantryStaplesList,
 ];
