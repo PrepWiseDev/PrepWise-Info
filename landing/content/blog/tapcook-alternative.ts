@@ -72,7 +72,7 @@ export const post: BlogPostDraft = {
       body: [
         "TapCook starts with the budget and works toward a shopping list. A pantry planner starts with the shelf and works toward a plan. The two meet in the middle, but the first screen is different, and so is the question each one asks you.",
         "If you keep a full pantry, a budget-first plan still has you ticking items off one at a time. If you already own the rice, the beans, the half bag of spinach and the chicken thighs, the useful question is what those add up to tonight.",
-        "A small example: you own pasta, a jar of sauce and some frozen sausage. A plan built around a budget can still put a new recipe on Tuesday that needs four things you do not have. A plan built from your pantry puts the pasta dinner on Tuesday and tells you the one thing missing.",
+        "A small example: you own pasta, a jar of sauce and some frozen sausage. A plan built from a catalogue can put a new recipe on Tuesday that needs four things you do not have. A plan built from your pantry puts the pasta dinner on Tuesday and tells you the one thing missing.",
       ],
     },
     {
