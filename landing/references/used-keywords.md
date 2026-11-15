@@ -77,6 +77,7 @@ That list is enforced page-by-page in
 | 15 | `mealime alternative` | Blog post | `/blog/mealime-alternative` | Google autocomplete 2026-10-14 (returns `mealime alternatives`, `mealime app alternative`, `apps like mealime`) + Trent D6 decision 2026-10-14 | 2026-10-14 |
 | 16 | `hellofresh alternative` | Blog post | `/blog/hellofresh-alternative` | Google autocomplete 2026-10-15 (returns `hellofresh alternatives`, `hellofresh alternatives reddit`) + topic-queue #1 (Apple Ads search term "Hello Fresh") | 2026-10-15 |
 | 17 | `pantry staples list` | Blog post | `/blog/pantry-staples-list` | Google autocomplete 2026-11-01 (returns `pantry staples list`, `pantry staples list printable`, `pantry staples on a budget`) + topic-queue #2, cluster 10 | 2026-11-01 |
+| 18 | `tapcook alternative` | Blog post | `/blog/tapcook-alternative` | Google autocomplete 2026-11-15 (returns `tapcook alternative`, `tapcook alternative for android`; `apps like tapcook`) + topic-queue #3 (Apple Ads search term "tapcook: budget meal plans") | 2026-11-15 |
 
 **"SERP review" is not the same as keyword research.** It means the phrase was
 searched, the ranking pages were read, and the page was written to match their
